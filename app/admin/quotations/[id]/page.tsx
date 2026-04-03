@@ -245,9 +245,9 @@ export default function QuotationPreviewPage() {
     scopeTemplate: activeValues?.scopeTemplate || '',
     scopeOfWork: activeValues?.scopeOfWork || '',
     client: {
-      name: quotation.clients?.contact_name || 'Client',
+      name: activeValues?.contactPerson || quotation.clients?.contact_name || 'Client',
       company: quotation.clients?.company_name || '',
-      address: quotation.clients?.address || '',
+      address: activeValues?.address || quotation.clients?.address || '',
       city: quotation.clients?.city || '',
       email: quotation.clients?.email || ''
     },
@@ -332,8 +332,10 @@ export default function QuotationPreviewPage() {
       )}
 
       {/* Quotation Template Preview */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <QuotationTemplate ref={templateRef} data={quotationData} />
+      <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+        <div className="min-w-[794px]">
+          <QuotationTemplate ref={templateRef} data={quotationData} />
+        </div>
       </div>
 
       {/* Send Quotation Dialog */}

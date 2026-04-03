@@ -189,8 +189,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           <div>
             <p className="text-xs font-bold text-[#1a1a2e] tracking-widest mb-2">PREPARED FOR</p>
             <div className="border-2 border-[#FF6B00] rounded-md px-4 py-3 bg-orange-50 min-w-[220px]">
-              <p className="font-bold text-black">{data.client.name}</p>
-              {data.client.company && <p className="text-[#FF6B00]">{data.client.company}</p>}
+              <p className="font-bold text-black text-[14px]">{data.client.name}</p>
+              {data.client.company && <p className="text-[#FF6B00] font-semibold">{data.client.company}</p>}
               {data.client.address && <p className="text-[#FF6B00]">{data.client.address}</p>}
               {data.client.city && <p className="text-[#FF6B00]">{data.client.city}</p>}
             </div>

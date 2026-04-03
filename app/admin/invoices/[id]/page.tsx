@@ -274,9 +274,9 @@ export default function InvoicePreviewPage() {
     recurringSchedule: editFormValues?.recurringSchedule || 'one-time',
     timeline: editFormValues?.timeline || '3 Days',
     client: {
-      name: invoice.clients?.contact_name || 'Client',
+      name: editFormValues?.contactPerson || invoice.clients?.contact_name || 'Client',
       company: invoice.clients?.company_name || '',
-      address: invoice.clients?.address || '',
+      address: editFormValues?.address || invoice.clients?.address || '',
       city: invoice.clients?.city || '',
       parish: invoice.clients?.parish || '',
       email: invoice.clients?.email || ''
@@ -367,8 +367,10 @@ export default function InvoicePreviewPage() {
 
 
       {/* Invoice Template Preview */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <InvoiceTemplate ref={templateRef} data={invoiceData} />
+      <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+        <div className="min-w-[794px]">
+          <InvoiceTemplate ref={templateRef} data={invoiceData} />
+        </div>
       </div>
 
       {/* Send Invoice Dialog */}

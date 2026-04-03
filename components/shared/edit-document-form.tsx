@@ -257,21 +257,18 @@ export function EditDocumentForm({
       if (clientData) {
         setClients(clientData)
         setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean))])
-        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
+        // Pre-filter contact names by already-selected company if one is set
+        const preSelectedCompany = initialValues.selectedClientId
+        const relevantClients = preSelectedCompany
+          ? clientData.filter(c => c.company_name === preSelectedCompany)
+          : clientData
+        setContactNames([...new Set(relevantClients.map(c => c.contact_name).filter(Boolean))])
         setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
       }
 
-      // Load unique job titles from quotations
-      const { data: quoteData } = await supabase
-        .from('quotations')
-        .select('title')
-        .not('title', 'is', null)
-      // Load unique job titles from invoices
-      const { data: invData } = await supabase
-        .from('invoices')
-        .select('title')
-        .not('title', 'is', null)
-
+      // Load unique job titles from quotations + invoices
+      const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
+      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
       const allTitles = [
         ...(quoteData || []).map((r: any) => r.title),
         ...(invData || []).map((r: any) => r.title),
@@ -295,17 +292,20 @@ export function EditDocumentForm({
     loadOptions()
   }, [])
 
-  // When client is selected from DB, auto-fill related fields
+  // When company is selected, auto-fill contact, address, TRN and update contact name list
   const handleClientSelect = (companyOrName: string) => {
     setSelectedClientId(companyOrName)
-    const found = clients.find(
-      c => c.company_name === companyOrName || c.contact_name === companyOrName
-    )
-    if (found) {
-      if (found.contact_name && !contactPerson) setContactPerson(found.contact_name)
-      const addr = [found.address, found.city, found.parish].filter(Boolean).join(', ')
+    // Find all clients matching this company so we can show their contacts
+    const matchingClients = clients.filter(c => c.company_name === companyOrName)
+    if (matchingClients.length > 0) {
+      // Update contact name dropdown to only show contacts for this company
+      setContactNames(matchingClients.map(c => c.contact_name).filter(Boolean))
+      // Auto-fill first contact if field is blank
+      const first = matchingClients[0]
+      if (first.contact_name && !contactPerson) setContactPerson(first.contact_name)
+      const addr = [first.address, first.city, first.parish].filter(Boolean).join(', ')
       if (addr) setAddress(addr)
-      if (found.trn) setTrn(found.trn)
+      if (first.trn) setTrn(first.trn)
     }
   }
 
