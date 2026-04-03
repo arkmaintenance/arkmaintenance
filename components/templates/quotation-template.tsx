@@ -39,6 +39,14 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     const fillerRows = Array.from({
       length: Math.max(0, minimumVisibleRows - data.items.length),
     })
+    const bankingDetails = [
+      { label: 'Bank', value: 'First Global Bank' },
+      { label: 'Branch', value: 'Ocho Rios' },
+      { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
+      { label: 'Branch Code', value: '99094' },
+      { label: 'Account Number', value: '99094 0006 439' },
+      { label: 'Account Type', value: 'Savings' },
+    ]
 
     return (
       <div
@@ -147,9 +155,9 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           {/* Totals */}
           <div className="flex justify-end mb-3">
             <div className="w-64">
-              <div className="flex justify-between py-1 border-b border-gray-200">
-                <span className="font-semibold">Subtotal:</span>
-                <span>JMD {data.subtotal.toLocaleString()}</span>
+              <div className="flex justify-between py-1.5 border-b border-gray-200">
+                <span className="text-[18px] font-extrabold text-black">Subtotal:</span>
+                <span className="text-[18px] font-extrabold text-black">JMD {data.subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-1 font-bold text-[#FF6B00]">
                 <span>Total:</span>
@@ -159,16 +167,16 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           </div>
 
           {/* Banking Details */}
-          <div className="border-2 border-[#FF6B00] rounded p-4 mb-3 bg-white">
-            <h3 className="font-bold text-[#FF6B00] text-center uppercase tracking-wide mb-3 text-sm">Banking Details</h3>
-            <div className="h-px bg-[#FF6B00] mb-3" />
-            <div className="space-y-1 text-sm">
-              <p><span className="font-bold text-[#1a1a2e]">Bank:</span> First Global Bank</p>
-              <p><span className="font-bold text-[#1a1a2e]">Branch:</span> Ocho Rios</p>
-              <p><span className="font-bold text-[#1a1a2e]">Name:</span> ARK Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd.</p>
-              <p><span className="font-bold text-[#1a1a2e]">Branch Code:</span> 99094</p>
-              <p><span className="font-bold text-[#1a1a2e]">Account Number:</span> 99094 0006 439</p>
-              <p><span className="font-bold text-[#1a1a2e]">Account Type:</span> Savings</p>
+          <div className="border-2 border-[#FF6B00] rounded-lg px-4 py-3 mb-3 bg-white">
+            <h3 className="font-bold text-[#A14C1F] text-center uppercase tracking-[0.22em] mb-2 text-[15px]">Banking Details</h3>
+            <div className="h-px bg-[#FF6B00] mb-2" />
+            <div className="text-[12px] leading-[1.1] space-y-0.5">
+              {bankingDetails.map((detail) => (
+                <p key={detail.label} className="flex gap-1">
+                  <span className="w-[150px] shrink-0 font-extrabold text-[#A14C1F]">{detail.label}:</span>
+                  <span className="text-slate-700">{detail.value}</span>
+                </p>
+              ))}
             </div>
           </div>
 
@@ -191,14 +199,14 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             </div>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-600 font-semibold mb-1">OUR PROFESSIONAL SERVICES</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-[10px] leading-none text-gray-600 font-semibold mb-0.5">OUR PROFESSIONAL SERVICES</p>
+            <p className="text-[9px] leading-none text-gray-500 whitespace-nowrap">
               AIR COND./REFRIGERATION: SALES + SERVICE + REPAIR + INSTALLATION | KITCHEN EXHAUST: FABRICATION + MAINTENANCE + REPAIRS
             </p>
-            <p className="text-xs text-gray-500 mb-2">
+            <p className="text-[9px] leading-none text-gray-500 whitespace-nowrap mb-1">
               KITCHEN EQUIPMENT: CLEANING + REPAIRS + SALES | DEEP CLEANING: DE-GREASING + DE-SCALING
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-[9px] leading-none text-gray-600 whitespace-nowrap">
               Thank you for choosing Ark Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd &middot; www.arkmaintenance.com
             </p>
           </div>

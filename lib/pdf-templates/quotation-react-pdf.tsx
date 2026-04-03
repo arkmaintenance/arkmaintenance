@@ -165,11 +165,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   totalLabel: {
-    fontSize: 9,
-    fontWeight: 600,
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.black,
   },
   totalValue: {
-    fontSize: 9,
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.black,
   },
   grandTotalLabel: {
     fontSize: 10,
@@ -203,37 +206,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 4,
-    padding: 8,
+    paddingTop: 7,
+    paddingRight: 8,
+    paddingBottom: 6,
+    paddingLeft: 8,
     marginBottom: 4,
   },
   bankingTitle: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
-    color: colors.primary,
+    color: '#A14C1F',
     textAlign: 'center',
     textTransform: 'uppercase',
-    marginBottom: 4,
-    letterSpacing: 1,
+    marginBottom: 3,
+    letterSpacing: 1.6,
   },
   bankingDivider: {
     height: 1,
     backgroundColor: colors.primary,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   bankingRow: {
     flexDirection: 'row',
-    marginBottom: 1,
+    marginBottom: 0,
   },
   bankingLabel: {
-    fontSize: 8,
+    width: 106,
+    fontSize: 8.4,
     fontWeight: 700,
-    color: colors.dark,
-    width: 80,
+    color: '#A14C1F',
+    lineHeight: 1.1,
   },
   bankingValue: {
-    fontSize: 8,
-    color: colors.gray,
+    fontSize: 8.4,
+    color: '#334155',
     flex: 1,
+    lineHeight: 1.1,
   },
   // Fixed Footer - appears at bottom of every page
   footerFixed: {
@@ -281,23 +289,25 @@ const styles = StyleSheet.create({
     objectFit: 'cover',
   },
   footerText: {
-    fontSize: 6,
+    fontSize: 5.2,
     color: colors.gray,
     textAlign: 'center',
-    marginBottom: 1,
+    marginBottom: 0.5,
+    lineHeight: 1,
   },
   footerTitle: {
-    fontSize: 7,
+    fontSize: 6.2,
     fontWeight: 600,
     color: colors.primary,
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   thankYou: {
-    fontSize: 6,
+    fontSize: 5.2,
     color: colors.gray,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 1,
+    lineHeight: 1,
   },
   pageNumber: {
     fontSize: 8,
@@ -346,6 +356,14 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
   const fillerRows = Array.from({
     length: Math.max(0, minimumVisibleRows - data.items.length),
   })
+  const bankingDetails = [
+    { label: 'Bank', value: 'First Global Bank' },
+    { label: 'Branch', value: 'Ocho Rios' },
+    { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
+    { label: 'Branch Code', value: '99094' },
+    { label: 'Account Number', value: '99094 0006 439' },
+    { label: 'Account Type', value: 'Savings' },
+  ]
   const formatCurrency = (amount: number) => `JMD ${amount.toLocaleString()}`
 
   return (
@@ -472,30 +490,12 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
         <View style={styles.bankingSection} wrap={false}>
           <Text style={styles.bankingTitle}>Banking Details</Text>
           <View style={styles.bankingDivider} />
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Bank:</Text>
-            <Text style={styles.bankingValue}>First Global Bank</Text>
-          </View>
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Branch:</Text>
-            <Text style={styles.bankingValue}>Ocho Rios</Text>
-          </View>
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Name:</Text>
-            <Text style={styles.bankingValue}>ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.</Text>
-          </View>
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Branch Code:</Text>
-            <Text style={styles.bankingValue}>99094</Text>
-          </View>
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Account Number:</Text>
-            <Text style={styles.bankingValue}>99094 0006 439</Text>
-          </View>
-          <View style={styles.bankingRow}>
-            <Text style={styles.bankingLabel}>Account Type:</Text>
-            <Text style={styles.bankingValue}>Savings</Text>
-          </View>
+          {bankingDetails.map((detail) => (
+            <View key={detail.label} style={styles.bankingRow}>
+              <Text style={styles.bankingLabel}>{detail.label}:</Text>
+              <Text style={styles.bankingValue}>{detail.value}</Text>
+            </View>
+          ))}
         </View>
 
         {/* Fixed Footer - appears at bottom of every page */}
