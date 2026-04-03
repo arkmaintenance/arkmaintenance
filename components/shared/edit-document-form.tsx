@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, forwardRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,28 +65,30 @@ interface EditDocumentFormProps {
 
 // ─── Combobox ─────────────────────────────────────────────────────────────────
 
-function Combobox({
-  value,
-  onChange,
-  options,
-  placeholder,
-  className = '',
-}: {
+const Combobox = forwardRef<HTMLInputElement, {
   value: string
   onChange: (v: string) => void
   options: string[]
   placeholder?: string
   className?: string
-}) {
+}>(function Combobox({ value, onChange, options, placeholder, className = '' }, forwardedRef) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(value)
-  const ref = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Expose internal input to parent via forwardedRef
+  useEffect(() => {
+    if (!forwardedRef) return
+    if (typeof forwardedRef === 'function') forwardedRef(inputRef.current)
+    else forwardedRef.current = inputRef.current
+  })
 
   useEffect(() => { setQuery(value) }, [value])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -97,9 +99,10 @@ function Combobox({
     : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
 
   return (
-    <div ref={ref} className={`relative flex-1 ${className}`}>
+    <div ref={containerRef} className={`relative flex-1 ${className}`}>
       <div className="flex">
         <Input
+          ref={inputRef}
           value={query}
           onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
@@ -108,7 +111,7 @@ function Combobox({
         />
         <button
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => { setOpen(o => !o); inputRef.current?.focus() }}
           className="px-2 bg-[#2a2a4a] border border-[#3a3a5a] border-l-0 rounded-r-md text-gray-400 hover:text-white"
         >
           <ChevronDown className="h-3 w-3" />
@@ -130,7 +133,7 @@ function Combobox({
       )}
     </div>
   )
-}
+})
 
 // ─── ClearableField ───────────────────────────────────────────────────────────
 
@@ -139,9 +142,8 @@ function ClearableField({
   labelClass,
   value,
   onChange,
-  options,          // undefined = plain input; [] or populated = always combobox
+  options,
   placeholder,
-  onAdd,
 }: {
   label: string
   labelClass?: string
@@ -149,31 +151,47 @@ function ClearableField({
   onChange: (v: string) => void
   options?: string[]
   placeholder?: string
-  onAdd?: () => void
 }) {
-  const useCombo = options !== undefined   // always combobox if options prop provided
+  const inputRef = useRef<HTMLInputElement>(null)
+  const useCombo = options !== undefined
+
+  // + button: clears the text so the full dropdown opens on next focus/click
+  const handleAdd = () => {
+    onChange('')
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   return (
     <div className="space-y-1">
       <Label className={`text-sm font-medium ${labelClass || 'text-gray-300'}`}>{label}</Label>
       <div className="flex gap-1 items-center">
         {useCombo ? (
-          <Combobox value={value} onChange={onChange} options={options!} placeholder={placeholder} />
+          <Combobox
+            ref={inputRef}
+            value={value}
+            onChange={onChange}
+            options={options!}
+            placeholder={placeholder}
+          />
         ) : (
           <Input
+            ref={inputRef}
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder={placeholder}
             className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1 placeholder:text-gray-500"
           />
         )}
+        {/* + opens / resets the dropdown */}
         <button
           type="button"
           title="Open list"
-          onClick={() => { if (onAdd) onAdd() }}
+          onClick={handleAdd}
           className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
+        {/* − clears the field */}
         <button
           type="button"
           title="Clear field"
@@ -360,6 +378,11 @@ export function EditDocumentForm({
               options={companyNames}
               placeholder="Select or type company..."
             />
+            <button type="button" title="Open list"
+              onClick={() => { setSelectedClientId('') }}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
             <button type="button" title="Clear" onClick={() => setSelectedClientId('')}
               className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
               <Minus className="h-3.5 w-3.5" />
@@ -397,7 +420,11 @@ export function EditDocumentForm({
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Reset" onClick={() => setPaymentTerms('COD')}
+            <button type="button" title="Open" onClick={() => {}}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Reset to COD" onClick={() => setPaymentTerms('COD')}
               className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
               <Minus className="h-3.5 w-3.5" />
             </button>
