@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Minus, Trash2, Save, X, ChevronDown, Layers } from 'lucide-react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (v2) ───────────────────────────────────────────────────────────────
 
 export interface DocItem {
   description: string

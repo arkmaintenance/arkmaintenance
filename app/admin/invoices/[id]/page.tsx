@@ -1,3 +1,4 @@
+// Invoice detail + edit page
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
