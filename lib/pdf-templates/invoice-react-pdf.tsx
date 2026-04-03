@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 11,
     paddingTop: 130, // Space for fixed header
-    paddingBottom: 212, // Space for fixed footer with service images
+    paddingBottom: 290, // Space for fixed footer with taller service images
     paddingHorizontal: 35,
   },
   // Fixed Header - appears on every page
@@ -248,10 +248,9 @@ const styles = StyleSheet.create({
   },
   footerImageCard: {
     flex: 1,
-    height: 122,
+    height: 200,
     borderRadius: 4,
     backgroundColor: colors.lightGray,
-    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -262,7 +261,7 @@ const styles = StyleSheet.create({
   footerServiceImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
+    objectFit: 'cover',
   },
   footerText: {
     fontSize: 6,
@@ -314,6 +313,11 @@ interface InvoiceData {
   subtotal: number
   total: number
   balance_due: number
+  assets?: {
+    logo?: string
+    footerLeft?: string
+    footerRight?: string
+  }
 }
 
 interface InvoicePdfDocumentProps {
@@ -330,10 +334,12 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
         <View style={styles.headerFixed} fixed>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
-              <Image
-                src="https://arkmaintenance.com/images/ark-logo.png"
-                style={styles.logo}
-              />
+              {data.assets?.logo ? (
+                <Image
+                  src={data.assets.logo}
+                  style={styles.logo}
+                />
+              ) : null}
               <View style={styles.companyInfo}>
                 <Text>Kingston: 71 First Street, Newport Blvd.</Text>
                 <Text>Tel: 876-514-4020 / 876-476-1748</Text>
@@ -463,16 +469,20 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
           </View>
           <View style={styles.footerImageRow}>
             <View style={[styles.footerImageCard, styles.footerImageCardLeft]}>
-              <Image
-                src="https://arkmaintenance.com/images/exhaust-service.jpg"
-                style={styles.footerServiceImage}
-              />
+              {data.assets?.footerLeft ? (
+                <Image
+                  src={data.assets.footerLeft}
+                  style={styles.footerServiceImage}
+                />
+              ) : null}
             </View>
             <View style={styles.footerImageCard}>
-              <Image
-                src="https://arkmaintenance.com/images/ac-service.png"
-                style={styles.footerServiceImage}
-              />
+              {data.assets?.footerRight ? (
+                <Image
+                  src={data.assets.footerRight}
+                  style={styles.footerServiceImage}
+                />
+              ) : null}
             </View>
           </View>
           <Text style={styles.footerTitle}>OUR PROFESSIONAL SERVICES</Text>

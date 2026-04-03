@@ -139,18 +139,18 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
           <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-3"></div>
           {/* Two service photos side by side */}
           <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50 p-1" style={{ height: '130px' }}>
+            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '200px' }}>
               <img
-                src="/images/exhaust-service.jpg"
+                src="/images/1.jpeg"
                 alt="ARK Kitchen Exhaust Service"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
               />
             </div>
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50 p-1" style={{ height: '130px' }}>
+            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '200px' }}>
               <img
-                src="/images/ac-service.png"
+                src="/images/2.jpeg"
                 alt="ARK AC Servicing"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
               />
             </div>
           </div>

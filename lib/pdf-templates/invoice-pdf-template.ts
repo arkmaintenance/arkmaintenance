@@ -289,9 +289,9 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
     }
     .service-image {
       width: 100%;
-      height: 90px;
+      height: 165px;
       object-fit: cover;
-      object-position: center top;
+      object-position: center;
       display: block;
     }
     .footer-text {
@@ -413,10 +413,10 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
       <div class="footer-gradient"></div>
       <div class="service-images-grid">
         <div class="service-image-container">
-          <img src="${KITCHEN_SERVICE_IMAGE}" alt="ARK Kitchen Maintenance" class="service-image" crossorigin="anonymous">
+          <img src="/images/1.jpeg" alt="ARK Kitchen Maintenance" class="service-image" crossorigin="anonymous">
         </div>
         <div class="service-image-container">
-          <img src="${AC_SERVICE_IMAGE}" alt="ARK AC Servicing" class="service-image" crossorigin="anonymous">
+          <img src="/images/2.jpeg" alt="ARK AC Servicing" class="service-image" crossorigin="anonymous">
         </div>
       </div>
       <div class="footer-text">
