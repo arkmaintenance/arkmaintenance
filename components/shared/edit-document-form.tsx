@@ -38,12 +38,14 @@ export interface EditFormValues {
   serviceLocation: string
   address: string
   paymentTerms: string
+  paymentMethod: string        // cash | bank_transfer | cheque | credit_card
   poNumber: string
   trn: string
   timeline: string
   isServiceContract: boolean
   recurringSchedule: string
   scopeOfWork: string
+  scopeTemplate: string       // which checklist template key
   validUntil: string
   status: string
   notes: string
@@ -100,23 +102,23 @@ function Combobox({
           onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
-          className="bg-[#2a2a4a] border-[#3a3a5a] text-white rounded-r-none border-r-0 flex-1"
+          className="bg-white border-gray-300 text-gray-900 rounded-r-none border-r-0 flex-1 placeholder:text-gray-400"
         />
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
-          className="px-2 bg-[#2a2a4a] border border-[#3a3a5a] border-l-0 rounded-r-md text-gray-400 hover:text-white"
+          className="px-2 bg-white border border-gray-300 border-l-0 rounded-r-md text-gray-500 hover:text-gray-800"
         >
           <ChevronDown className="h-3 w-3" />
         </button>
       </div>
       {open && filtered.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-xl max-h-48 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-48 overflow-y-auto">
           {filtered.map((opt, i) => (
             <button
               key={i}
               type="button"
-              className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
+              className="w-full text-left px-3 py-2 text-sm text-gray-800 hover:bg-[#FF6B00]/10 truncate"
               onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}
             >
               {opt}
@@ -137,7 +139,7 @@ function ClearableField({
   onChange,
   options = [],
   placeholder,
-  children,
+  onAdd,
 }: {
   label: string
   labelClass?: string
@@ -145,11 +147,11 @@ function ClearableField({
   onChange: (v: string) => void
   options?: string[]
   placeholder?: string
-  children?: React.ReactNode
+  onAdd?: () => void
 }) {
   return (
     <div className="space-y-1">
-      <Label className={`text-sm ${labelClass || 'text-gray-300'}`}>{label}</Label>
+      <Label className={`text-sm font-medium ${labelClass || 'text-[#1a1a2e]'}`}>{label}</Label>
       <div className="flex gap-1 items-center">
         {options.length > 0 ? (
           <Combobox value={value} onChange={onChange} options={options} placeholder={placeholder} />
@@ -158,15 +160,24 @@ function ClearableField({
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder={placeholder}
-            className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
+            className="bg-white border-gray-300 text-gray-900 flex-1 placeholder:text-gray-400"
           />
         )}
-        {children}
+        {/* + button: opens the dropdown or appends a space to trigger it */}
+        <button
+          type="button"
+          title="Add / open list"
+          onClick={() => { if (options.length > 0) onChange(value + ' '); else if (onAdd) onAdd() }}
+          className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+        {/* − button: clears the field */}
         <button
           type="button"
           title="Clear field"
           onClick={() => onChange('')}
-          className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+          className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0"
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -202,12 +213,14 @@ export function EditDocumentForm({
   const [serviceLocation, setServiceLocation] = useState(initialValues.serviceLocation)
   const [address, setAddress] = useState(initialValues.address)
   const [paymentTerms, setPaymentTerms] = useState(initialValues.paymentTerms)
+  const [paymentMethod, setPaymentMethod] = useState(initialValues.paymentMethod || 'bank_transfer')
   const [poNumber, setPoNumber] = useState(initialValues.poNumber)
   const [trn, setTrn] = useState(initialValues.trn)
   const [timeline, setTimeline] = useState(initialValues.timeline)
   const [isServiceContract, setIsServiceContract] = useState(initialValues.isServiceContract)
   const [recurringSchedule, setRecurringSchedule] = useState(initialValues.recurringSchedule)
   const [scopeOfWork, setScopeOfWork] = useState(initialValues.scopeOfWork)
+  const [scopeTemplate, setScopeTemplate] = useState(initialValues.scopeTemplate || '')
   const [validUntil, setValidUntil] = useState(initialValues.validUntil)
   const [status, setStatus] = useState(initialValues.status)
   const [notes, setNotes] = useState(initialValues.notes)
@@ -305,26 +318,26 @@ export function EditDocumentForm({
   const subtotal = items.reduce((s, it) => s + (it.section ? 0 : it.amount), 0)
 
   const currentValues: EditFormValues = {
-    title, contactPerson, serviceLocation, address, paymentTerms,
+    title, contactPerson, serviceLocation, address, paymentTerms, paymentMethod,
     poNumber, trn, timeline, isServiceContract, recurringSchedule,
-    scopeOfWork, validUntil, status, notes, items, selectedClientId,
+    scopeOfWork, scopeTemplate, validUntil, status, notes, items, selectedClientId,
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6 space-y-5 print:hidden">
+    <div className="bg-[#f0f4ff] border border-[#c8d4f0] rounded-xl p-6 space-y-5 print:hidden">
       {/* Title bar */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-white text-xl font-semibold">
+      <div className="flex items-center justify-between border-b border-[#c8d4f0] pb-3">
+        <h2 className="text-[#1a1a2e] text-xl font-bold">
           Edit {docType === 'quotation' ? 'Quotation' : 'Invoice'}
         </h2>
-        <span className="text-[#00BCD4] font-bold text-lg tracking-wide">{docNumber}</span>
+        <span className="bg-[#00BCD4] text-white font-bold text-sm px-3 py-1 rounded-full tracking-wide">{docNumber}</span>
       </div>
 
       {/* ── Row 1: Doc # (visible) + Date + Client selector ── */}
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1">
-          <Label className="text-gray-400 text-xs uppercase tracking-wider">
+          <Label className="text-[#1a1a2e] text-xs font-semibold uppercase tracking-wider">
             {docType === 'quotation' ? 'Quotation' : 'Invoice'} #
           </Label>
           <div className="h-9 flex items-center px-3 rounded-md border border-[#00BCD4] bg-[#00BCD4]/10 text-[#00BCD4] font-bold text-sm">
@@ -332,13 +345,13 @@ export function EditDocumentForm({
           </div>
         </div>
         <div className="space-y-1">
-          <Label className="text-gray-400 text-xs uppercase tracking-wider">Date</Label>
-          <div className="h-9 flex items-center px-3 rounded-md border border-[#3a3a5a] bg-[#2a2a4a] text-gray-300 text-sm">
+          <Label className="text-[#1a1a2e] text-xs font-semibold uppercase tracking-wider">Date</Label>
+          <div className="h-9 flex items-center px-3 rounded-md border border-gray-300 bg-white text-gray-700 text-sm">
             {docDate}
           </div>
         </div>
         <div className="space-y-1">
-          <Label className="text-gray-400 text-xs uppercase tracking-wider">Client / Company</Label>
+          <Label className="text-[#1a1a2e] text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
           <div className="flex gap-1 items-center">
             <Combobox
               value={selectedClientId}
@@ -346,8 +359,12 @@ export function EditDocumentForm({
               options={companyNames}
               placeholder="Select or type company..."
             />
+            <button type="button" title="Add new" onClick={() => setSelectedClientId('')}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
             <button type="button" title="Clear" onClick={() => setSelectedClientId('')}
-              className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0">
+              className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0">
               <Minus className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -373,24 +390,24 @@ export function EditDocumentForm({
       {/* ── Row 4: Payment Terms + PO # + TRN ── */}
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Payment Terms</Label>
+          <Label className="text-[#1a1a2e] text-sm font-medium">Payment Terms</Label>
           <div className="flex gap-1 items-center">
             <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-              <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"><SelectValue /></SelectTrigger>
-              <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+              <SelectTrigger className="bg-white border-gray-300 text-gray-900 flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-white border-gray-200">
                 {['COD','Net 15','Net 30','Net 60','50% Deposit','7 Days','30 Days'].map(t => (
-                  <SelectItem key={t} value={t} className="text-white hover:bg-[#2a2a4a]">{t}</SelectItem>
+                  <SelectItem key={t} value={t} className="text-gray-800">{t}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Clear" onClick={() => setPaymentTerms('COD')}
-              className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0">
+            <button type="button" title="Reset" onClick={() => setPaymentTerms('COD')}
+              className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0">
               <Minus className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
         <ClearableField label="PO Number" value={poNumber} onChange={setPoNumber} placeholder="PO Number" />
-        <ClearableField label="TRN" labelClass="text-[#E91E63]" value={trn} onChange={setTrn} placeholder="TRN" />
+        <ClearableField label="TRN" labelClass="text-[#E91E63] font-medium" value={trn} onChange={setTrn} placeholder="TRN" />
       </div>
 
       {/* ── Service Description ── */}
@@ -399,40 +416,40 @@ export function EditDocumentForm({
       </ClearableField>
 
       {/* ── Line Items ── */}
-      <div className="border border-[#3a3a5a] rounded-lg overflow-hidden">
+      <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
         {/* Table header */}
-        <div className="bg-[#2a2a4a] px-3 py-2 flex items-center justify-between">
-          <span className="text-gray-300 text-xs font-semibold uppercase tracking-wider">Line Items</span>
+        <div className="bg-[#1a1a2e] px-3 py-2 flex items-center justify-between">
+          <span className="text-white text-xs font-semibold uppercase tracking-wider">Line Items</span>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="ghost"
               onClick={addSection}
-              className="text-[#FF6B00] hover:text-[#FF6B00] hover:bg-[#FF6B00]/10 text-xs gap-1 h-7 px-2">
+              className="text-[#FF6B00] hover:text-[#FF6B00] hover:bg-[#FF6B00]/20 text-xs gap-1 h-7 px-2">
               <Layers className="h-3.5 w-3.5" /> Add Section
             </Button>
             <Button type="button" size="sm" variant="ghost"
               onClick={addItem}
-              className="text-[#00BCD4] hover:text-[#00BCD4] hover:bg-[#00BCD4]/10 text-xs gap-1 h-7 px-2">
+              className="text-[#00BCD4] hover:text-[#00BCD4] hover:bg-[#00BCD4]/20 text-xs gap-1 h-7 px-2">
               <Plus className="h-3.5 w-3.5" /> Add Item
             </Button>
           </div>
         </div>
 
         {/* Column labels */}
-        <div className="grid grid-cols-12 gap-2 px-3 py-1 bg-[#141428]">
-          <div className="col-span-4 text-[10px] text-gray-500 uppercase">Description</div>
-          <div className="col-span-2 text-[10px] text-gray-500 uppercase">Qty</div>
-          <div className="col-span-2 text-[10px] text-gray-500 uppercase">Unit Price</div>
-          <div className="col-span-1 text-[10px] text-gray-500 uppercase">Disc.</div>
-          <div className="col-span-2 text-[10px] text-gray-500 uppercase text-right">Amount</div>
+        <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-gray-100 border-b border-gray-200">
+          <div className="col-span-4 text-[10px] text-gray-500 font-semibold uppercase">Description</div>
+          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase">Qty</div>
+          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase">Unit Price</div>
+          <div className="col-span-1 text-[10px] text-gray-500 font-semibold uppercase">Disc.</div>
+          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase text-right">Amount</div>
           <div className="col-span-1" />
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-[#2a2a4a]">
+        <div className="divide-y divide-gray-100 bg-white">
           {items.map((item, index) =>
             item.section !== undefined ? (
               // Section header row
-              <div key={index} className="flex items-center gap-2 px-3 py-2 bg-[#FF6B00]/10">
+              <div key={index} className="flex items-center gap-2 px-3 py-2 bg-orange-50 border-l-4 border-[#FF6B00]">
                 <Layers className="h-3.5 w-3.5 text-[#FF6B00] shrink-0" />
                 <Input
                   value={item.section}
@@ -441,13 +458,13 @@ export function EditDocumentForm({
                   className="bg-transparent border-none text-[#FF6B00] font-semibold text-sm p-0 h-auto focus-visible:ring-0 flex-1"
                 />
                 <button type="button" onClick={() => removeItem(index)}
-                  className="text-red-400 hover:text-red-300 p-1">
+                  className="text-red-400 hover:text-red-500 p-1">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
             ) : (
               // Item row
-              <div key={index} className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-[#2a2a4a]/40">
+              <div key={index} className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-blue-50/50">
                 <div className="col-span-4">
                   <Combobox
                     value={item.description}
@@ -460,18 +477,18 @@ export function EditDocumentForm({
                 <div className="col-span-2">
                   <div className="flex items-center gap-0.5">
                     <button type="button" onClick={() => updateItem(index, 'qty', Math.max(1, item.qty - 1))}
-                      className="w-6 h-6 rounded bg-[#3a3a5a] text-white text-xs flex items-center justify-center hover:bg-[#FF6B00]/80 shrink-0">
+                      className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-xs flex items-center justify-center hover:bg-red-100 hover:text-red-600 shrink-0">
                       <Minus className="h-3 w-3" />
                     </button>
                     <Input
                       type="number"
                       value={item.qty}
                       onChange={e => updateItem(index, 'qty', e.target.value)}
-                      className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-center px-1 w-full"
+                      className="bg-white border-gray-300 text-gray-900 text-center px-1 w-full"
                       min={1}
                     />
                     <button type="button" onClick={() => updateItem(index, 'qty', item.qty + 1)}
-                      className="w-6 h-6 rounded bg-[#3a3a5a] text-white text-xs flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                      className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-xs flex items-center justify-center hover:bg-[#00BCD4]/20 hover:text-[#00BCD4] shrink-0">
                       <Plus className="h-3 w-3" />
                     </button>
                   </div>
@@ -481,7 +498,7 @@ export function EditDocumentForm({
                     type="number"
                     value={item.unit_price}
                     onChange={e => updateItem(index, 'unit_price', e.target.value)}
-                    className="bg-[#2a2a4a] border-[#3a3a5a] text-white"
+                    className="bg-white border-gray-300 text-gray-900"
                     min={0}
                   />
                 </div>
@@ -490,18 +507,18 @@ export function EditDocumentForm({
                     type="number"
                     value={item.discount}
                     onChange={e => updateItem(index, 'discount', e.target.value)}
-                    className="bg-[#2a2a4a] border-[#3a3a5a] text-white"
+                    className="bg-white border-gray-300 text-gray-900"
                     min={0}
                   />
                 </div>
-                <div className="col-span-2 text-right">
-                  <span className="text-[#FF6B00] font-bold text-sm">
-                    JMD {item.amount.toLocaleString()}
-                  </span>
+                <div className="col-span-2">
+                  <div className="text-right font-bold text-[#FF6B00] text-sm pr-1">
+                    {item.amount.toLocaleString()}
+                  </div>
                 </div>
                 <div className="col-span-1 flex justify-center">
                   <button type="button" onClick={() => removeItem(index)}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-1 rounded">
+                    className="w-6 h-6 rounded bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -510,8 +527,8 @@ export function EditDocumentForm({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-3 py-2 bg-[#141428] border-t border-[#3a3a5a]">
+        {/* Footer totals */}
+        <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t border-gray-200">
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={addSection}
               className="text-[#FF6B00] hover:bg-[#FF6B00]/10 text-xs gap-1 h-7 px-2">
@@ -522,29 +539,30 @@ export function EditDocumentForm({
               <Plus className="h-3.5 w-3.5" /> Add Item
             </Button>
           </div>
-          <span className="text-[#FF6B00] font-bold">Total: JMD {subtotal.toLocaleString()}</span>
+          <div className="text-[#FF6B00] font-bold text-base">
+            Total: JMD {subtotal.toLocaleString()}
+          </div>
         </div>
       </div>
-
-      {/* ── Timeline + Service Contract ── */}
+      {/* ── Timeline + Recurring Schedule ── */}
       <div className="grid grid-cols-2 gap-4">
         <ClearableField label="Job Completion Timeline" value={timeline} onChange={setTimeline}
           options={['1 Day','2-3 Days','3-5 Days','1 Week','2 Weeks','1 Month']}
           placeholder="e.g. 3-5 Days...">
         </ClearableField>
         <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Recurring Schedule</Label>
+          <Label className="text-[#1a1a2e] text-sm font-medium">Recurring Schedule</Label>
           <div className="flex gap-1 items-center">
             <Select value={recurringSchedule} onValueChange={setRecurringSchedule}>
-              <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"><SelectValue /></SelectTrigger>
-              <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+              <SelectTrigger className="bg-white border-gray-300 text-gray-900 flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-white border-gray-200">
                 {['one-time','weekly','bi-weekly','monthly','quarterly','semi-annual','annual'].map(v => (
-                  <SelectItem key={v} value={v} className="text-white capitalize">{v.replace('-',' ')}</SelectItem>
+                  <SelectItem key={v} value={v} className="text-gray-800 capitalize">{v.replace('-',' ')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <button type="button" title="Reset" onClick={() => setRecurringSchedule('one-time')}
-              className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0">
+              className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0">
               <Minus className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -552,26 +570,74 @@ export function EditDocumentForm({
       </div>
 
       {/* Service Contract toggle */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 py-1">
         <Switch checked={isServiceContract} onCheckedChange={setIsServiceContract} className="data-[state=checked]:bg-[#00BCD4]" />
-        <Label className="text-gray-300 text-sm">Service Contract</Label>
+        <Label className="text-[#1a1a2e] text-sm font-medium">Service Contract</Label>
       </div>
+
+      {/* ── Payment Method (invoice only) ── */}
+      {docType === 'invoice' && (
+        <div className="space-y-2">
+          <Label className="text-[#1a1a2e] text-sm font-medium">Payment Method</Label>
+          <div className="flex gap-3 flex-wrap">
+            {[
+              { value: 'cash', label: 'Cash' },
+              { value: 'bank_transfer', label: 'Bank Transfer' },
+              { value: 'cheque', label: 'Cheque' },
+              { value: 'credit_card', label: 'Credit Card' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPaymentMethod(opt.value)}
+                className={`px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
+                  paymentMethod === opt.value
+                    ? 'border-[#FF6B00] bg-[#FF6B00] text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-[#FF6B00]/50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Scope of Work (quotation only) ── */}
       {docType === 'quotation' && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Scope of Work</Label>
-          <div className="flex gap-1">
-            <Textarea
-              value={scopeOfWork}
-              onChange={e => setScopeOfWork(e.target.value)}
-              placeholder="Describe the scope of work..."
-              className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[70px] flex-1"
-            />
-            <button type="button" title="Clear" onClick={() => setScopeOfWork('')}
-              className="self-start p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10">
-              <Minus className="h-3.5 w-3.5" />
-            </button>
+        <div className="space-y-2">
+          <Label className="text-[#1a1a2e] text-sm font-medium">Scope of Work Template</Label>
+          <Select value={scopeTemplate} onValueChange={setScopeTemplate}>
+            <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+              <SelectValue placeholder="Select a scope of work template..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              <SelectItem value="" className="text-gray-500 italic">None / Custom</SelectItem>
+              <SelectItem value="ac_servicing" className="text-gray-800">16-Point Air Conditioning Servicing</SelectItem>
+              <SelectItem value="refrigeration" className="text-gray-800">16-Point Refrigeration Servicing</SelectItem>
+              <SelectItem value="exhaust" className="text-gray-800">Kitchen Exhaust System Checklist</SelectItem>
+              <SelectItem value="ice_machine" className="text-gray-800">16-Point Ice Machine Servicing</SelectItem>
+            </SelectContent>
+          </Select>
+          {scopeTemplate && (
+            <div className="text-xs text-[#00BCD4] bg-[#00BCD4]/10 border border-[#00BCD4]/30 rounded-md px-3 py-2 mt-1">
+              Template selected — the scope will appear on the printed quotation below the totals and banking details.
+            </div>
+          )}
+          <div className="space-y-1 mt-1">
+            <Label className="text-gray-500 text-xs">Custom notes (optional — appended below template)</Label>
+            <div className="flex gap-1">
+              <Textarea
+                value={scopeOfWork}
+                onChange={e => setScopeOfWork(e.target.value)}
+                placeholder="Add any custom scope notes..."
+                className="bg-white border-gray-300 text-gray-900 min-h-[60px] flex-1 placeholder:text-gray-400 text-sm"
+              />
+              <button type="button" title="Clear" onClick={() => setScopeOfWork('')}
+                className="self-start w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -580,27 +646,27 @@ export function EditDocumentForm({
       <div className="grid grid-cols-2 gap-4">
         {docType === 'quotation' && (
           <div className="space-y-1">
-            <Label className="text-gray-300 text-sm">Valid Until</Label>
+            <Label className="text-[#1a1a2e] text-sm font-medium">Valid Until</Label>
             <div className="flex gap-1 items-center">
               <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)}
-                className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                className="bg-white border-gray-300 text-gray-900 flex-1" />
               <button type="button" onClick={() => setValidUntil('')}
-                className="p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0">
+                className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0">
                 <Minus className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
         )}
         <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Status</Label>
+          <Label className="text-[#1a1a2e] text-sm font-medium">Status</Label>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+            <SelectTrigger className="bg-white border-gray-300 text-gray-900"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
               {(docType === 'quotation'
                 ? ['pending','sent','accepted','rejected','expired']
                 : ['draft','sent','paid','overdue','cancelled']
               ).map(s => (
-                <SelectItem key={s} value={s} className="text-white capitalize">{s}</SelectItem>
+                <SelectItem key={s} value={s} className="text-gray-800 capitalize">{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -609,24 +675,25 @@ export function EditDocumentForm({
 
       {/* ── Notes ── */}
       <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Notes</Label>
+        <Label className="text-[#1a1a2e] text-sm font-medium">Notes</Label>
         <div className="flex gap-1">
           <Textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[70px] flex-1"
+            placeholder="Additional notes..."
+            className="bg-white border-gray-300 text-gray-900 min-h-[70px] flex-1 placeholder:text-gray-400"
           />
           <button type="button" title="Clear" onClick={() => setNotes('')}
-            className="self-start p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10">
+            className="self-start w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 shrink-0">
             <Minus className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
       {/* ── Save / Cancel ── */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-[#2a2a4a]">
+      <div className="flex justify-end gap-3 pt-3 border-t border-gray-200">
         <Button variant="outline" onClick={onCancel}
-          className="border-[#3a3a5a] text-white hover:bg-[#2a2a4a] gap-2">
+          className="border-gray-300 text-gray-700 hover:bg-gray-100 gap-2">
           <X className="h-4 w-4" /> Cancel
         </Button>
         <Button onClick={() => onSave(currentValues)} disabled={saving}
