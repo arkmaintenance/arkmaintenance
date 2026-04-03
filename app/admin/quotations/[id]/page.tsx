@@ -315,7 +315,7 @@ export default function QuotationPreviewPage() {
       month: 'long',
       day: 'numeric'
     }),
-    payment_terms: '50% Deposit Required',
+    payment_terms: editedPaymentTerms || '50% Deposit Required',
     service_description: isEditing ? editedTitle : (quotation.title || 'SERVICE QUOTATION'),
     timeline: isEditing ? editedTimeline : (quotation.description || '3-5 Days'),
     client: {

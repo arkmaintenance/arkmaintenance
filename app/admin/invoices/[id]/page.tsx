@@ -357,7 +357,7 @@ export default function InvoicePreviewPage() {
       month: 'long',
       day: 'numeric'
     }),
-    payment_terms: 'COD',
+    payment_terms: editedPaymentTerms || 'COD',
     service_description: serviceDescription,
     client: {
       name: invoice.clients?.contact_name || 'Client',
