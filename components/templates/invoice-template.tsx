@@ -56,9 +56,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
         className="bg-white text-black px-3 py-8 mx-auto font-sans w-[794px] min-h-[1123px] flex flex-col leading-[1.1] shrink-0"
         style={{ fontSize: '12px' }}
       >
-        {/* Header */}
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex-1">
+        {/* Header Row 1: Logo left, Address right */}
+        <div className="flex justify-between items-start mb-3">
+          <div>
             <Image
               src="/images/ark-logo.png"
               alt="ARK Maintenance"
@@ -66,31 +66,38 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
               height={72}
               style={{ width: 'auto', height: '68px' }}
             />
-            <div className="mt-1 text-gray-600 text-[11px] leading-[1]">
-              <p>Kingston: 71 First Street, Newport Blvd.</p>
-              <p>Tel: 876-514-4020 / 876-476-1748</p>
-              <p>Email: admin@arkmaintenance.com</p>
-              <p>www.arkmaintenance.com</p>
-            </div>
           </div>
-          <div className="text-right">
-            <h1 className="text-3xl font-bold text-[#FF6B00]">INVOICE</h1>
-            <div className="mt-1 text-[12px] leading-[1]">
-              <p><span className="font-semibold">Invoice:</span> {data.invoice_number}</p>
-              <p><span className="font-semibold">Date:</span> {data.date}</p>
-              <p><span className="font-semibold">Payment Terms:</span> {data.payment_terms}</p>
-            </div>
+          <div className="text-right text-[11px] text-gray-600 leading-snug">
+            <p>Kingston: 71 First Street, Newport Blvd.</p>
+            <p>Tel: 876-514-4020 / 876-476-1748</p>
+            <p>Email: admin@arkmaintenance.com</p>
+            <p>www.arkmaintenance.com</p>
           </div>
         </div>
 
-        {/* Bill To */}
-        <div className="mb-4 leading-[1.1]">
-          <h3 className="font-bold text-gray-800 border-b border-gray-300 pb-1 mb-1.5">BILL TO</h3>
-          <p className="font-semibold">{data.client.name}</p>
-          <p>{data.client.company}</p>
-          <p>{data.client.address}</p>
-          <p>{data.client.city}</p>
-          <p>{data.client.parish}</p>
+        {/* Divider */}
+        <div className="h-px bg-gray-300 mb-3" />
+
+        {/* Header Row 2: Bill To left, Invoice title+details right */}
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <p className="text-xs font-bold text-[#1a1a2e] tracking-widest mb-2">BILL TO</p>
+            <div className="border-2 border-[#FF6B00] rounded-md px-4 py-3 bg-orange-50 min-w-[220px]">
+              <p className="font-bold text-black">{data.client.name}</p>
+              {data.client.company && <p className="text-[#FF6B00]">{data.client.company}</p>}
+              {data.client.address && <p className="text-[#FF6B00]">{data.client.address}</p>}
+              {data.client.city && <p className="text-[#FF6B00]">{data.client.city}</p>}
+              {data.client.parish && <p className="text-[#FF6B00]">{data.client.parish}</p>}
+            </div>
+          </div>
+          <div className="text-right">
+            <h1 className="text-4xl font-extrabold text-[#FF6B00] leading-none mb-2">INVOICE</h1>
+            <div className="text-sm text-gray-700 space-y-0.5">
+              <p><span className="font-normal text-gray-500">Invoice:</span> <span className="font-bold">{data.invoice_number}</span></p>
+              <p><span className="font-normal text-gray-500">Date:</span> <span className="font-bold">{data.date}</span></p>
+              <p><span className="font-normal text-gray-500">Payment Terms:</span> <span className="font-bold">{data.payment_terms}</span></p>
+            </div>
+          </div>
         </div>
 
         {/* Service Description */}

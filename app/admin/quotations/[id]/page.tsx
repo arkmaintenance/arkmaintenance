@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SendQuotationDialog } from '@/components/quotations/send-quotation-dialog'
-import { ArrowLeft, Printer, Download, Send, FileText, Pencil, Plus, Trash2, Save, X } from 'lucide-react'
+import { ArrowLeft, Printer, Download, Send, FileText, Pencil, Plus, Trash2, Save, X, Link2, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface QuotationItem {
@@ -55,6 +56,17 @@ export default function QuotationPreviewPage() {
   const [editedTitle, setEditedTitle] = useState('')
   const [editedNotes, setEditedNotes] = useState('')
   const [editedTimeline, setEditedTimeline] = useState('')
+  const [editedContactPerson, setEditedContactPerson] = useState('')
+  const [editedServiceLocation, setEditedServiceLocation] = useState('')
+  const [editedAddress, setEditedAddress] = useState('')
+  const [editedPaymentTerms, setEditedPaymentTerms] = useState('COD')
+  const [editedPoNumber, setEditedPoNumber] = useState('')
+  const [editedTrn, setEditedTrn] = useState('')
+  const [editedScopeOfWork, setEditedScopeOfWork] = useState('')
+  const [editedIsServiceContract, setEditedIsServiceContract] = useState(false)
+  const [editedRecurringSchedule, setEditedRecurringSchedule] = useState('one-time')
+  const [editedValidUntil, setEditedValidUntil] = useState('')
+  const [editedStatus, setEditedStatus] = useState('pending')
   const [saving, setSaving] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
@@ -98,8 +110,22 @@ export default function QuotationPreviewPage() {
       }))
       setEditedItems(normalizedItems)
       setEditedTitle(data.title || '')
-      setEditedNotes(data.notes || '')
-      setEditedTimeline(data.description || '3-5 Days')
+      // Parse notes JSON if stored that way
+      let parsedNotes: any = {}
+      try { parsedNotes = typeof data.notes === 'string' ? JSON.parse(data.notes) : {} } catch {}
+      setEditedNotes(parsedNotes.notes || (typeof data.notes === 'string' && !data.notes.startsWith('{') ? data.notes : '') || '')
+      setEditedTimeline(parsedNotes.job_timeline || data.description || '3-5 Days')
+      setEditedContactPerson(parsedNotes.contact_person || '')
+      setEditedServiceLocation(parsedNotes.service_location || '')
+      setEditedAddress(parsedNotes.address || data.clients?.address || '')
+      setEditedPaymentTerms(parsedNotes.payment_terms || 'COD')
+      setEditedPoNumber(parsedNotes.po_number || '')
+      setEditedTrn(parsedNotes.trn || '')
+      setEditedScopeOfWork(parsedNotes.scope_of_work || '')
+      setEditedIsServiceContract(parsedNotes.is_service_contract || false)
+      setEditedRecurringSchedule(parsedNotes.recurring_schedule || 'one-time')
+      setEditedValidUntil(data.valid_until ? data.valid_until.split('T')[0] : '')
+      setEditedStatus(data.status || 'pending')
       setClientEmail(data.clients?.email)
       setLoading(false)
     }
@@ -127,8 +153,21 @@ export default function QuotationPreviewPage() {
       }))
       setEditedItems(normalizedItems)
       setEditedTitle(quotation.title || '')
-      setEditedNotes(quotation.notes || '')
-      setEditedTimeline(quotation.description || '')
+      let parsedNotes: any = {}
+      try { parsedNotes = typeof quotation.notes === 'string' ? JSON.parse(quotation.notes) : {} } catch {}
+      setEditedNotes(parsedNotes.notes || (typeof quotation.notes === 'string' && !quotation.notes.startsWith('{') ? quotation.notes : '') || '')
+      setEditedTimeline(parsedNotes.job_timeline || quotation.description || '')
+      setEditedContactPerson(parsedNotes.contact_person || '')
+      setEditedServiceLocation(parsedNotes.service_location || '')
+      setEditedAddress(parsedNotes.address || '')
+      setEditedPaymentTerms(parsedNotes.payment_terms || 'COD')
+      setEditedPoNumber(parsedNotes.po_number || '')
+      setEditedTrn(parsedNotes.trn || '')
+      setEditedScopeOfWork(parsedNotes.scope_of_work || '')
+      setEditedIsServiceContract(parsedNotes.is_service_contract || false)
+      setEditedRecurringSchedule(parsedNotes.recurring_schedule || 'one-time')
+      setEditedValidUntil(quotation.valid_until ? quotation.valid_until.split('T')[0] : '')
+      setEditedStatus(quotation.status || 'pending')
     }
     setIsEditing(false)
   }
@@ -148,7 +187,21 @@ export default function QuotationPreviewPage() {
         subtotal,
         total,
         description: editedTimeline,
-        notes: editedNotes
+        status: editedStatus,
+        valid_until: editedValidUntil || null,
+        notes: JSON.stringify({
+          contact_person: editedContactPerson,
+          service_location: editedServiceLocation,
+          address: editedAddress,
+          payment_terms: editedPaymentTerms,
+          po_number: editedPoNumber,
+          trn: editedTrn,
+          job_timeline: editedTimeline,
+          is_service_contract: editedIsServiceContract,
+          recurring_schedule: editedRecurringSchedule,
+          scope_of_work: editedScopeOfWork,
+          notes: editedNotes,
+        }),
       })
       .eq('id', quotation.id)
 
@@ -165,7 +218,7 @@ export default function QuotationPreviewPage() {
       subtotal,
       total,
       description: editedTimeline,
-      notes: editedNotes
+      status: editedStatus,
     })
 
     toast.success('Quotation updated successfully')
@@ -304,18 +357,7 @@ export default function QuotationPreviewPage() {
           Back to Quotations
         </Button>
         <div className="flex gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={handleCancelEdit} className="gap-2">
-                <X className="h-4 w-4" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving} className="gap-2 bg-green-600 hover:bg-green-700">
-                <Save className="h-4 w-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          ) : (
+          {!isEditing && (
             <>
               <Button variant="outline" onClick={handleStartEdit} className="gap-2">
                 <Pencil className="h-4 w-4" />
@@ -352,137 +394,221 @@ export default function QuotationPreviewPage() {
 
       {/* Edit Mode */}
       {isEditing && (
-        <Card className="bg-card border-border print:hidden">
-          <CardHeader>
-            <CardTitle className="text-lg">Edit Quotation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Service Description */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Service Description / Title</Label>
-                <Input
-                  id="title"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="bg-input border-border"
-                  placeholder="e.g., EXHAUST SYSTEM DEEP CLEANING"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="timeline">Job Completion Timeline</Label>
-                <Input
-                  id="timeline"
-                  value={editedTimeline}
-                  onChange={(e) => setEditedTimeline(e.target.value)}
-                  className="bg-input border-border"
-                  placeholder="e.g., 3-5 Days"
-                />
+        <div className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl p-6 space-y-4 print:hidden">
+          <h2 className="text-white text-xl font-semibold">Edit Quotation</h2>
+
+          {/* Row 1: Quotation Number + Company */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Quotation Number</Label>
+              <Input value={quotation.quote_number} readOnly className="bg-[#00BCD4] border-[#00BCD4] text-black font-semibold" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Client</Label>
+              <Input value={quotation.clients?.company_name || quotation.clients?.contact_name || ''} readOnly className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
+            </div>
+          </div>
+
+          {/* Row 2: Contact Person + Service Location */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Contact Person</Label>
+              <div className="flex gap-2">
+                <Input value={editedContactPerson} onChange={(e) => setEditedContactPerson(e.target.value)} placeholder="Contact person name" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00]"><Plus className="h-4 w-4" /></Button>
               </div>
             </div>
-
-            {/* Line Items */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Line Items</Label>
-                <Button variant="outline" size="sm" onClick={handleAddItem} className="gap-1">
-                  <Plus className="h-4 w-4" />
-                  Add Item
-                </Button>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Service Location</Label>
+              <div className="flex gap-2">
+                <Select value={editedServiceLocation} onValueChange={setEditedServiceLocation}>
+                  <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1">
+                    <SelectValue placeholder="Select or type location" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
+                    <SelectItem value="kingston" className="text-white">Kingston</SelectItem>
+                    <SelectItem value="montego-bay" className="text-white">Montego Bay</SelectItem>
+                    <SelectItem value="ocho-rios" className="text-white">Ocho Rios</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="ghost" size="icon" className="text-gray-400 hover:text-white"><MapPin className="h-4 w-4" /></Button>
               </div>
-              
-              <div className="space-y-3">
-                {editedItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-secondary/30 rounded-lg">
-                    <div className="col-span-4">
-                      <Label className="text-xs text-muted-foreground">Description</Label>
-                      <Input
-                        value={item.description}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className="bg-input border-border"
-                        placeholder="Service description"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">Qty</Label>
-                      <Input
-                        type="number"
-                        value={item.qty}
-                        onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
-                        className="bg-input border-border"
-                        min={1}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">Unit Price (JMD)</Label>
-                      <Input
-                        type="number"
-                        value={item.unit_price}
-                        onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                        className="bg-input border-border"
-                        min={0}
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <Label className="text-xs text-muted-foreground">Discount</Label>
-                      <Input
-                        type="number"
-                        value={item.discount}
-                        onChange={(e) => handleItemChange(index, 'discount', e.target.value)}
-                        className="bg-input border-border"
-                        min={0}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">Amount</Label>
-                      <Input
-                        value={`JMD ${item.amount.toLocaleString()}`}
-                        readOnly
-                        className="bg-secondary border-border text-muted-foreground"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveItem(index)}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            </div>
+          </div>
 
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-64 space-y-2 bg-secondary/30 p-3 rounded-lg">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium">JMD {subtotal.toLocaleString()}</span>
+          {/* Row 3: Address */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Address</Label>
+            <div className="flex gap-2">
+              <Input value={editedAddress} onChange={(e) => setEditedAddress(e.target.value)} placeholder="Select or type address" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+              <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00]"><Plus className="h-4 w-4" /></Button>
+            </div>
+          </div>
+
+          {/* Row 4: Payment Terms + PO Number + TRN */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Payment Terms</Label>
+              <Select value={editedPaymentTerms} onValueChange={setEditedPaymentTerms}>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
+                  <SelectItem value="COD" className="text-white">COD</SelectItem>
+                  <SelectItem value="Net 15" className="text-white">Net 15</SelectItem>
+                  <SelectItem value="Net 30" className="text-white">Net 30</SelectItem>
+                  <SelectItem value="Net 60" className="text-white">Net 60</SelectItem>
+                  <SelectItem value="50% Deposit" className="text-white">50% Deposit</SelectItem>
+                  <SelectItem value="7 Days" className="text-white">7 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">PO Number</Label>
+              <div className="flex gap-2">
+                <Input value={editedPoNumber} onChange={(e) => setEditedPoNumber(e.target.value)} placeholder="PO Number" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00]"><Plus className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#E91E63] text-sm">TRN</Label>
+              <div className="flex gap-2">
+                <Input value={editedTrn} onChange={(e) => setEditedTrn(e.target.value)} placeholder="TRN" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00]"><Plus className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Service Description */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Service Description</Label>
+            <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} placeholder="Type or select service description" className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-2 border border-[#3a3a5a] rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-gray-300 text-sm">Line Items</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddItem} className="text-[#00BCD4] text-xs gap-1">
+                <Plus className="h-3 w-3" /> Add Item
+              </Button>
+            </div>
+            {/* Header row */}
+            <div className="grid grid-cols-12 gap-2 mb-1 px-1">
+              <div className="col-span-4 text-xs text-gray-400">Description</div>
+              <div className="col-span-2 text-xs text-gray-400">Qty</div>
+              <div className="col-span-2 text-xs text-gray-400">Unit Price (JMD)</div>
+              <div className="col-span-1 text-xs text-gray-400">Discount</div>
+              <div className="col-span-2 text-xs text-gray-400">Amount</div>
+              <div className="col-span-1" />
+            </div>
+            <div className="space-y-2">
+              {editedItems.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-4">
+                    <Input value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} placeholder="Service description" className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
                   </div>
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span className="text-[#FF6B00]">JMD {total.toLocaleString()}</span>
+                  <div className="col-span-2">
+                    <Input type="number" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white" min={1} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" value={item.unit_price} onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white" min={0} />
+                  </div>
+                  <div className="col-span-1">
+                    <Input type="number" value={item.discount} onChange={(e) => handleItemChange(index, 'discount', e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white" min={0} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input value={`JMD ${item.amount.toLocaleString()}`} readOnly className="bg-[#3a3a5a] border-[#3a3a5a] text-gray-300" />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-400 hover:bg-red-500/10">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
+            <div className="flex justify-between items-center mt-4 pt-3 border-t border-[#3a3a5a]">
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddItem} className="text-[#00BCD4] text-xs gap-1">
+                <Plus className="h-3 w-3" /> Add Item
+              </Button>
+              <div className="text-[#FF6B00] font-semibold">Total: JMD {subtotal.toLocaleString()}</div>
+            </div>
+          </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes / Scope of Work</Label>
-              <Textarea
-                id="notes"
-                value={editedNotes}
-                onChange={(e) => setEditedNotes(e.target.value)}
-                className="bg-input border-border min-h-[100px]"
-                placeholder="Additional notes or scope of work details..."
-              />
+          {/* Job Completion Timeline */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Job Completion Timeline (Day)</Label>
+            <div className="flex gap-2">
+              <Input value={editedTimeline} onChange={(e) => setEditedTimeline(e.target.value)} placeholder="e.g. 2-3 business days, 1 week" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+              <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00]"><Plus className="h-4 w-4" /></Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Service Contract Toggle + Recurring Schedule */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <Switch checked={editedIsServiceContract} onCheckedChange={setEditedIsServiceContract} className="data-[state=checked]:bg-[#00BCD4]" />
+              <Label className="text-gray-300 text-sm">Service Contract</Label>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Recurring Schedule</Label>
+              <Select value={editedRecurringSchedule} onValueChange={setEditedRecurringSchedule}>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
+                  <SelectItem value="one-time" className="text-white">One-time</SelectItem>
+                  <SelectItem value="weekly" className="text-white">Weekly</SelectItem>
+                  <SelectItem value="bi-weekly" className="text-white">Bi-Weekly</SelectItem>
+                  <SelectItem value="monthly" className="text-white">Monthly</SelectItem>
+                  <SelectItem value="quarterly" className="text-white">Quarterly</SelectItem>
+                  <SelectItem value="semi-annual" className="text-white">Semi-Annual</SelectItem>
+                  <SelectItem value="annual" className="text-white">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Scope of Work */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Scope of Work</Label>
+            <Textarea value={editedScopeOfWork} onChange={(e) => setEditedScopeOfWork(e.target.value)} placeholder="Scope of work... select a template or type manually" className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[80px]" />
+          </div>
+
+          {/* Valid Until + Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Valid Until</Label>
+              <Input type="date" value={editedValidUntil} onChange={(e) => setEditedValidUntil(e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm">Status</Label>
+              <Select value={editedStatus} onValueChange={setEditedStatus}>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
+                  <SelectItem value="pending" className="text-white">Pending</SelectItem>
+                  <SelectItem value="sent" className="text-white">Sent</SelectItem>
+                  <SelectItem value="accepted" className="text-white">Accepted</SelectItem>
+                  <SelectItem value="rejected" className="text-white">Rejected</SelectItem>
+                  <SelectItem value="expired" className="text-white">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Notes</Label>
+            <Textarea value={editedNotes} onChange={(e) => setEditedNotes(e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[80px]" />
+          </div>
+
+          {/* Save / Cancel */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={handleCancelEdit} className="border-[#3a3a5a] text-white hover:bg-[#2a2a4a] gap-2">
+              <X className="h-4 w-4" /> Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-[#FF6B00] hover:bg-[#FF6B00]/90 text-white font-semibold gap-2">
+              <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Quotation Template Preview */}
