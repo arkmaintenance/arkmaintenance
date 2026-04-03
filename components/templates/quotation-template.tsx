@@ -60,9 +60,9 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             <Image
               src="/images/ark-logo.png"
               alt="ARK Maintenance"
-              width={180}
-              height={72}
-              style={{ width: 'auto', height: '68px' }}
+              width={220}
+              height={90}
+              style={{ width: 'auto', height: '90px' }}
             />
           </div>
           <div className="text-right text-xs text-gray-600 leading-snug">
@@ -98,7 +98,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
 
         {/* Service Description */}
-        <div className="bg-[#1a1a2e] text-white py-2 px-4 font-bold text-center mb-4 uppercase">
+        <div className="bg-[#1a1a2e] text-white py-2 px-4 font-bold text-center mb-4 uppercase text-[15px] tracking-wide">
           {data.service_description}
         </div>
 
@@ -107,7 +107,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           <thead>
             <tr className="bg-gradient-to-r from-[#00BFFF] via-[#FF6B00] to-[#FF6B00]">
               <th className="text-white text-left py-2 px-3 text-sm">#</th>
-              <th className="text-white text-left py-2 px-3 text-sm">Description</th>
+              <th className="text-white text-left py-2 px-3 text-sm font-bold">Description</th>
               <th className="text-white text-center py-2 px-3 text-sm">Qty</th>
               <th className="text-white text-right py-2 px-3 text-sm">Unit Price</th>
               {hasDiscountColumn && (
@@ -120,7 +120,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             {data.items.map((item, index) => (
               <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                 <td className="py-2 px-3 border-b border-gray-200">{index + 1}</td>
-                <td className="py-2 px-3 border-b border-gray-200">{item.description}</td>
+                <td className="py-2 px-3 border-b border-gray-200 font-bold text-[13px]">{item.description}</td>
                 <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
                 <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
                 {hasDiscountColumn && (
@@ -128,7 +128,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                     {item.discount ? `$ ${item.discount.toLocaleString()}` : ''}
                   </td>
                 )}
-                <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.amount.toLocaleString()}</td>
+                <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {item.amount.toLocaleString()}</td>
               </tr>
             ))}
             {fillerRows.map((_, index) => {
@@ -166,9 +166,9 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 <span className="text-[18px] font-extrabold text-black">Subtotal:</span>
                 <span className="text-[18px] font-extrabold text-black">JMD {data.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between py-1 font-bold text-[#FF6B00]">
-                <span>Total:</span>
-                <span>JMD {data.total.toLocaleString()}</span>
+              <div className="flex justify-between py-1.5">
+                <span className="text-[18px] font-extrabold text-[#FF6B00]">Total:</span>
+                <span className="text-[18px] font-extrabold text-[#FF6B00]">JMD {data.total.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -206,12 +206,18 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             </div>
           </div>
           <div className="text-center">
-            <p className="text-[10px] leading-none text-gray-600 font-semibold mb-0.5">OUR PROFESSIONAL SERVICES</p>
-            <p className="text-[9px] leading-none text-gray-500 whitespace-nowrap">
-              AIR COND./REFRIGERATION: SALES + SERVICE + REPAIR + INSTALLATION | KITCHEN EXHAUST: FABRICATION + MAINTENANCE + REPAIRS
+            <p className="text-[10px] leading-none text-[#2563EB] font-bold tracking-[0.22em] mb-0.5">+ OUR PROFESSIONAL SERVICES +</p>
+            <p className="text-[9px] leading-none whitespace-nowrap">
+              <span className="font-bold text-[#FF6B00]">AIR COND./REFRIGERATION:</span>
+              <span className="text-gray-500"> SALES + SERVICE + REPAIR + INSTALLATION | </span>
+              <span className="font-bold text-[#2563EB]">KITCHEN EXHAUST:</span>
+              <span className="text-gray-500"> FABRICATION + MAINTENANCE + REPAIRS</span>
             </p>
-            <p className="text-[9px] leading-none text-gray-500 whitespace-nowrap mb-1">
-              KITCHEN EQUIPMENT: CLEANING + REPAIRS + SALES | DEEP CLEANING: DE-GREASING + DE-SCALING
+            <p className="text-[9px] leading-none whitespace-nowrap mb-1">
+              <span className="font-bold text-[#FF6B00]">KITCHEN EQUIPMENT:</span>
+              <span className="text-gray-500"> CLEANING + REPAIRS + SALES | </span>
+              <span className="font-bold text-[#2563EB]">DEEP CLEANING:</span>
+              <span className="text-gray-500"> DE-GREASING + DE-SCALING</span>
             </p>
             <p className="text-[9px] leading-none text-gray-600 whitespace-nowrap">
               Thank you for choosing Ark Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd &middot; www.arkmaintenance.com

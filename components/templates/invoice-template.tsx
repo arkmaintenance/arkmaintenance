@@ -62,9 +62,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <Image
               src="/images/ark-logo.png"
               alt="ARK Maintenance"
-              width={180}
-              height={72}
-              style={{ width: 'auto', height: '68px' }}
+              width={220}
+              height={90}
+              style={{ width: 'auto', height: '90px' }}
             />
           </div>
           <div className="text-right text-[11px] text-gray-600 leading-snug">
@@ -101,7 +101,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
         </div>
 
         {/* Service Description */}
-        <div className="bg-[#1a1a2e] text-white py-1.5 px-4 font-bold text-center mb-3 uppercase leading-none">
+        <div className="bg-[#1a1a2e] text-white py-1.5 px-4 font-bold text-center mb-3 uppercase text-[15px] tracking-wide leading-snug">
           {data.service_description}
         </div>
 
@@ -110,7 +110,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
           <thead>
             <tr className="bg-gradient-to-r from-[#00BFFF] via-[#FF6B00] to-[#FF6B00]">
               <th className="text-white text-left py-1.5 px-3 text-sm">#</th>
-              <th className="text-white text-left py-1.5 px-3 text-sm">Description</th>
+              <th className="text-white text-left py-1.5 px-3 text-sm font-bold">Description</th>
               <th className="text-white text-center py-1.5 px-3 text-sm">Qty</th>
               <th className="text-white text-right py-1.5 px-3 text-sm">Unit Price</th>
               <th className="text-white text-right py-1.5 px-3 text-sm">Amount</th>
@@ -120,7 +120,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             {data.items.map((item, index) => (
               <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                 <td className="py-1.5 px-3 border-b border-gray-200">{index + 1}</td>
-                <td className="py-1.5 px-3 border-b border-gray-200">{item.description}</td>
+                <td className="py-1.5 px-3 border-b border-gray-200 font-bold text-[13px]">{item.description}</td>
                 <td className="py-1.5 px-3 border-b border-gray-200 text-center">{item.qty}</td>
                 <td className="py-1.5 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
                 <td className="py-1.5 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {calculateLineTotal(item).toLocaleString()}</td>
