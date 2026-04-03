@@ -38,12 +38,14 @@ export interface EditFormValues {
   serviceLocation: string
   address: string
   paymentTerms: string
+  paymentMethod: string        // cash | bank_transfer | cheque | credit_card
   poNumber: string
   trn: string
   timeline: string
   isServiceContract: boolean
   recurringSchedule: string
   scopeOfWork: string
+  scopeTemplate: string       // which checklist template key
   validUntil: string
   status: string
   notes: string
@@ -211,12 +213,14 @@ export function EditDocumentForm({
   const [serviceLocation, setServiceLocation] = useState(initialValues.serviceLocation)
   const [address, setAddress] = useState(initialValues.address)
   const [paymentTerms, setPaymentTerms] = useState(initialValues.paymentTerms)
+  const [paymentMethod, setPaymentMethod] = useState(initialValues.paymentMethod || 'bank_transfer')
   const [poNumber, setPoNumber] = useState(initialValues.poNumber)
   const [trn, setTrn] = useState(initialValues.trn)
   const [timeline, setTimeline] = useState(initialValues.timeline)
   const [isServiceContract, setIsServiceContract] = useState(initialValues.isServiceContract)
   const [recurringSchedule, setRecurringSchedule] = useState(initialValues.recurringSchedule)
   const [scopeOfWork, setScopeOfWork] = useState(initialValues.scopeOfWork)
+  const [scopeTemplate, setScopeTemplate] = useState(initialValues.scopeTemplate || '')
   const [validUntil, setValidUntil] = useState(initialValues.validUntil)
   const [status, setStatus] = useState(initialValues.status)
   const [notes, setNotes] = useState(initialValues.notes)
@@ -314,9 +318,9 @@ export function EditDocumentForm({
   const subtotal = items.reduce((s, it) => s + (it.section ? 0 : it.amount), 0)
 
   const currentValues: EditFormValues = {
-    title, contactPerson, serviceLocation, address, paymentTerms,
+    title, contactPerson, serviceLocation, address, paymentTerms, paymentMethod,
     poNumber, trn, timeline, isServiceContract, recurringSchedule,
-    scopeOfWork, validUntil, status, notes, items, selectedClientId,
+    scopeOfWork, scopeTemplate, validUntil, status, notes, items, selectedClientId,
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -571,20 +575,66 @@ export function EditDocumentForm({
         <Label className="text-[#1a1a2e] text-sm font-medium">Service Contract</Label>
       </div>
 
+      {/* ── Payment Method (invoice only) ── */}
+      {docType === 'invoice' && (
+        <div className="space-y-2">
+          <Label className="text-[#1a1a2e] text-sm font-medium">Payment Method</Label>
+          <div className="flex gap-3 flex-wrap">
+            {[
+              { value: 'cash', label: 'Cash' },
+              { value: 'bank_transfer', label: 'Bank Transfer' },
+              { value: 'cheque', label: 'Cheque' },
+              { value: 'credit_card', label: 'Credit Card' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPaymentMethod(opt.value)}
+                className={`px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
+                  paymentMethod === opt.value
+                    ? 'border-[#FF6B00] bg-[#FF6B00] text-white'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-[#FF6B00]/50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Scope of Work (quotation only) ── */}
       {docType === 'quotation' && (
-        <div className="space-y-1">
-          <Label className="text-[#1a1a2e] text-sm font-medium">Scope of Work</Label>
-          <div className="flex gap-1">
-            <Textarea
-              value={scopeOfWork}
-              onChange={e => setScopeOfWork(e.target.value)}
-              placeholder="Describe the scope of work..."
-              className="bg-white border-gray-300 text-gray-900 min-h-[70px] flex-1 placeholder:text-gray-400"
-            />
-            <div className="flex flex-col gap-1 shrink-0">
+        <div className="space-y-2">
+          <Label className="text-[#1a1a2e] text-sm font-medium">Scope of Work Template</Label>
+          <Select value={scopeTemplate} onValueChange={setScopeTemplate}>
+            <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+              <SelectValue placeholder="Select a scope of work template..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              <SelectItem value="" className="text-gray-500 italic">None / Custom</SelectItem>
+              <SelectItem value="ac_servicing" className="text-gray-800">16-Point Air Conditioning Servicing</SelectItem>
+              <SelectItem value="refrigeration" className="text-gray-800">16-Point Refrigeration Servicing</SelectItem>
+              <SelectItem value="exhaust" className="text-gray-800">Kitchen Exhaust System Checklist</SelectItem>
+              <SelectItem value="ice_machine" className="text-gray-800">16-Point Ice Machine Servicing</SelectItem>
+            </SelectContent>
+          </Select>
+          {scopeTemplate && (
+            <div className="text-xs text-[#00BCD4] bg-[#00BCD4]/10 border border-[#00BCD4]/30 rounded-md px-3 py-2 mt-1">
+              Template selected — the scope will appear on the printed quotation below the totals and banking details.
+            </div>
+          )}
+          <div className="space-y-1 mt-1">
+            <Label className="text-gray-500 text-xs">Custom notes (optional — appended below template)</Label>
+            <div className="flex gap-1">
+              <Textarea
+                value={scopeOfWork}
+                onChange={e => setScopeOfWork(e.target.value)}
+                placeholder="Add any custom scope notes..."
+                className="bg-white border-gray-300 text-gray-900 min-h-[60px] flex-1 placeholder:text-gray-400 text-sm"
+              />
               <button type="button" title="Clear" onClick={() => setScopeOfWork('')}
-                className="w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200">
+                className="self-start w-7 h-7 rounded-md bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200">
                 <Minus className="h-3.5 w-3.5" />
               </button>
             </div>

@@ -9,6 +9,7 @@ interface QuotationItem {
   unit_price: number
   discount?: number
   amount: number
+  section?: string
 }
 
 interface QuotationData {
@@ -17,11 +18,16 @@ interface QuotationData {
   payment_terms: string
   service_description: string
   timeline?: string
+  isServiceContract?: boolean
+  recurringSchedule?: string
+  scopeTemplate?: string
+  scopeOfWork?: string
   client: {
     name: string
     company: string
     address: string
     city: string
+    email?: string
   }
   items: QuotationItem[]
   subtotal: number
@@ -32,13 +38,109 @@ interface QuotationTemplateProps {
   data: QuotationData
 }
 
+// ── Scope of work checklists ─────────────────────────────────────────────────
+
+const SCOPE_TEMPLATES: Record<string, { title: string; intro: string; points: string[] }> = {
+  ac_servicing: {
+    title: '16 Point Air Conditioning Servicing Checklist',
+    intro: 'Our 16 Point Servicing Method Includes but is not limited to:',
+    points: [
+      'Cleaning of Evaporator, Evaporator Coils and Evaporator Fan Motor.',
+      'Cleaning of Condensor Fan Motor, Condensor Coils, Fan Blades and Motor.',
+      'Cleaning and Treating of Drain Pan and Drain Line.',
+      'Cleaning and Treating of Air Filters.',
+      'Straightening of Evaporator and Condensor Coil Fins.',
+      'Checking Refrigerant (Freon) levels for adequate cooling.',
+      'Checking Superheat and Subcooling.',
+      'Checking the Compressor Amp draw.',
+      'Checking the Indoor & Outdoor Fan Motor Amp draw.',
+      'Checking Electrical Components.',
+      'Checking Thermostat for Proper Operation.',
+      'Checking for Refrigerant Leaks.',
+      'Checking & Testing the Capacitor.',
+      'Checking the Contactor.',
+      'Inspecting Overall Operation of Unit.',
+      'Recording all findings and Maintenance data for future reference.',
+    ],
+  },
+  refrigeration: {
+    title: '16 Point Refrigeration Servicing Checklist',
+    intro: 'Our 16 Point Refrigeration Servicing Method Includes but is not limited to:',
+    points: [
+      'Cleaning of Evaporator Coils and Evaporator Fan Motor.',
+      'Cleaning of Condenser Coils, Fan Blades and Condenser Fan Motor.',
+      'Cleaning and Treating of Drain Pan and Drain Line.',
+      'Cleaning and Treating of Air Filters and Door Gaskets.',
+      'Straightening of Evaporator and Condenser Coil Fins.',
+      'Checking Refrigerant (Freon) levels for adequate cooling.',
+      'Checking Superheat and Subcooling.',
+      'Checking the Compressor Amp draw.',
+      'Checking the Condenser Fan Motor Amp draw.',
+      'Checking all Electrical Components and Wiring.',
+      'Checking Thermostat / Temperature Controller for Proper Operation.',
+      'Checking for Refrigerant Leaks throughout the system.',
+      'Checking & Testing the Start and Run Capacitors.',
+      'Checking the Contactor and Relay.',
+      'Inspecting Overall Operation of the Refrigeration Unit.',
+      'Recording all findings and Maintenance data for future reference.',
+    ],
+  },
+  exhaust: {
+    title: 'Kitchen Exhaust System Servicing Checklist',
+    intro: 'Our Kitchen Exhaust System Service Includes but is not limited to:',
+    points: [
+      'De-greasing and cleaning of exhaust hood interior surfaces.',
+      'Cleaning of exhaust hood filters and grease traps.',
+      'Inspection and cleaning of exhaust ductwork.',
+      'Cleaning and inspection of exhaust fan blades and housing.',
+      'Checking exhaust fan motor for proper operation and amp draw.',
+      'Lubricating exhaust fan motor bearings and moving parts.',
+      'Checking and tightening all electrical connections.',
+      'Inspection of make-up air system (if applicable).',
+      'Checking belt tension and condition (belt-drive systems).',
+      'Testing exhaust fan speed and airflow.',
+      'Inspection of fire suppression system nozzles and coverage.',
+      'Checking grease collection containers and replacing if necessary.',
+      'Inspection of hood baffle filters for damage or excessive grease.',
+      'Checking all access panels and seals for integrity.',
+      'Testing overall system operation and airflow balance.',
+      'Recording all findings and Maintenance data for future reference.',
+    ],
+  },
+  ice_machine: {
+    title: '16 Point Ice Machine Servicing Checklist',
+    intro: 'Our 16 Point Ice Machine Servicing Method Includes but is not limited to:',
+    points: [
+      'Cleaning and sanitising the ice machine interior and bin.',
+      'Cleaning of Evaporator Coils and Evaporator Fan Motor.',
+      'Cleaning of Condenser Coils and Condenser Fan Motor.',
+      'Descaling the water distribution system and spray nozzles.',
+      'Replacing the water filter (where applicable).',
+      'Cleaning and inspecting the water pump and float valve.',
+      'Checking Refrigerant (Freon) levels for proper ice production.',
+      'Checking Superheat and Subcooling.',
+      'Checking the Compressor Amp draw.',
+      'Checking all Electrical Components and Wiring.',
+      'Checking Thermostat and Ice Thickness Control.',
+      'Checking for Refrigerant Leaks throughout the system.',
+      'Checking & Testing the Capacitor.',
+      'Checking water inlet valve and drain valve for proper operation.',
+      'Inspecting Overall Operation and ice production rate.',
+      'Recording all findings and Maintenance data for future reference.',
+    ],
+  },
+}
+
+// ── Template ─────────────────────────────────────────────────────────────────
+
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ data }, ref) => {
-    const hasDiscountColumn = data.items.some(item => item.discount)
-    const minimumVisibleRows = data.timeline ? 6 : 8
-    const fillerRows = Array.from({
-      length: Math.max(0, minimumVisibleRows - data.items.length),
-    })
+    const hasDiscountColumn = data.items.some(item => item.discount && !item.section)
+    const minimumVisibleRows = 6
+    const lineItems = data.items.filter(it => it.section === undefined)
+    const fillerCount = Math.max(0, minimumVisibleRows - data.items.length)
+    const fillerRows = Array.from({ length: fillerCount })
+
     const bankingDetails = [
       { label: 'Bank', value: 'First Global Bank' },
       { label: 'Branch', value: 'Ocho Rios' },
@@ -47,6 +149,12 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
       { label: 'Account Number', value: '99094 0006 439' },
       { label: 'Account Type', value: 'Savings' },
     ]
+
+    const scopeDef = data.scopeTemplate ? SCOPE_TEMPLATES[data.scopeTemplate] : null
+    const contractType = data.isServiceContract ? 'SERVICE CONTRACT' : 'STANDARD QUOTATION'
+    const scheduleLabel = data.recurringSchedule
+      ? data.recurringSchedule.charAt(0).toUpperCase() + data.recurringSchedule.slice(1).replace('-', ' ')
+      : 'One-time'
 
     return (
       <div
@@ -117,32 +225,38 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             </tr>
           </thead>
           <tbody>
-            {data.items.map((item, index) => (
-              <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                <td className="py-2 px-3 border-b border-gray-200">{index + 1}</td>
-                <td className="py-2 px-3 border-b border-gray-200 font-bold text-[13px]">{item.description}</td>
-                <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
-                <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
-                {hasDiscountColumn && (
-                  <td className="py-2 px-3 border-b border-gray-200 text-right text-red-500">
-                    {item.discount ? `$ ${item.discount.toLocaleString()}` : ''}
+            {data.items.map((item, index) =>
+              item.section !== undefined ? (
+                <tr key={index}>
+                  <td colSpan={hasDiscountColumn ? 6 : 5}
+                    className="py-1.5 px-3 bg-orange-50 border-l-4 border-[#FF6B00] font-bold text-[#FF6B00] text-xs uppercase tracking-wider">
+                    {item.section}
                   </td>
-                )}
-                <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {item.amount.toLocaleString()}</td>
-              </tr>
-            ))}
+                </tr>
+              ) : (
+                <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <td className="py-2 px-3 border-b border-gray-200">{lineItems.indexOf(item) + 1}</td>
+                  <td className="py-2 px-3 border-b border-gray-200 font-bold text-[13px]">{item.description}</td>
+                  <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
+                  <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
+                  {hasDiscountColumn && (
+                    <td className="py-2 px-3 border-b border-gray-200 text-right text-red-500">
+                      {item.discount ? `JMD ${item.discount.toLocaleString()}` : ''}
+                    </td>
+                  )}
+                  <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {item.amount.toLocaleString()}</td>
+                </tr>
+              )
+            )}
             {fillerRows.map((_, index) => {
               const rowIndex = data.items.length + index
-
               return (
                 <tr key={`filler-${index}`} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                   <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
                   <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
                   <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
                   <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
-                  {hasDiscountColumn && (
-                    <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
-                  )}
+                  {hasDiscountColumn && <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>}
                   <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
                 </tr>
               )
@@ -151,14 +265,6 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </table>
 
         <div className="mt-auto pt-4">
-          {/* Timeline */}
-          {data.timeline && (
-            <div className="bg-gray-100 p-4 rounded mb-3">
-              <h3 className="font-bold text-gray-800 mb-2">TIMELINE</h3>
-              <p className="text-sm">{data.timeline}</p>
-            </div>
-          )}
-
           {/* Totals */}
           <div className="flex justify-end mb-3">
             <div className="w-64">
@@ -172,6 +278,59 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               </div>
             </div>
           </div>
+
+          {/* Contract Type / Schedule / Timeline — 3 boxes matching sample image */}
+          <div className="grid grid-cols-3 gap-0 mb-3 border border-gray-300 rounded-md overflow-hidden">
+            {/* Contract Type — dark navy */}
+            <div className="bg-[#1a1a2e] px-3 py-2 text-center">
+              <p className="text-gray-400 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Contract Type</p>
+              <p className="text-white font-extrabold text-[13px] uppercase leading-tight">{contractType}</p>
+            </div>
+            {/* Schedule — orange tint */}
+            <div className="bg-orange-50 border-x border-gray-300 px-3 py-2 text-center">
+              <p className="text-[#FF6B00] text-[9px] font-semibold uppercase tracking-widest mb-0.5">Schedule</p>
+              <p className="text-[#FF6B00] font-extrabold text-[13px] capitalize leading-tight">{scheduleLabel}</p>
+            </div>
+            {/* Timeline — green tint */}
+            <div className="bg-green-50 border border-green-200 px-3 py-2 text-center">
+              <p className="text-green-700 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Timeline</p>
+              <p className="text-green-700 font-extrabold text-[13px] leading-tight">{data.timeline || '3 Days'}</p>
+            </div>
+          </div>
+
+          {/* Scope of Work */}
+          {(scopeDef || data.scopeOfWork) && (
+            <div className="border border-[#00BFFF] rounded-md px-4 py-3 mb-3">
+              <h3 className="font-extrabold text-[#00BFFF] text-[11px] uppercase tracking-[0.18em] mb-2">
+                Scope of Work
+              </h3>
+              {scopeDef && (
+                <>
+                  <p className="font-bold text-[#FF6B00] text-[11px] mb-2">{scopeDef.intro}</p>
+                  {/* 2-column numbered list */}
+                  <div className="grid grid-cols-2 gap-x-6">
+                    <ol className="list-none space-y-0.5">
+                      {scopeDef.points.slice(0, 8).map((pt, i) => (
+                        <li key={i} className="text-[10.5px] text-gray-700 leading-snug">
+                          <span className="font-semibold">{i + 1}.</span> {pt}
+                        </li>
+                      ))}
+                    </ol>
+                    <ol className="list-none space-y-0.5">
+                      {scopeDef.points.slice(8).map((pt, i) => (
+                        <li key={i} className="text-[10.5px] text-gray-700 leading-snug">
+                          <span className="font-semibold">{i + 9}.</span> {pt}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </>
+              )}
+              {data.scopeOfWork && (
+                <p className="text-[10.5px] text-gray-700 mt-2 leading-snug whitespace-pre-line">{data.scopeOfWork}</p>
+              )}
+            </div>
+          )}
 
           {/* Banking Details */}
           <div className="border-2 border-[#FF6B00] rounded-lg px-4 py-3 mb-3 bg-white">
@@ -187,22 +346,16 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             </div>
           </div>
 
-          {/* Footer with service images */}
-          <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-3"></div>
+          {/* Footer */}
+          <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-3" />
           <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
-              <img
-                src="/images/1.jpeg"
-                alt="ARK Kitchen Exhaust Service"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-              />
+            <div className="relative overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
+              <img src="/images/1.jpeg" alt="ARK Kitchen Exhaust Service"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
             </div>
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
-              <img
-                src="/images/2.jpeg"
-                alt="ARK AC Servicing"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-              />
+            <div className="relative overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
+              <img src="/images/2.jpeg" alt="ARK AC Servicing"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
             </div>
           </div>
           <div className="text-center">
