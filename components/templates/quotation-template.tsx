@@ -51,7 +51,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     return (
       <div
         ref={ref}
-        className="bg-white text-black p-8 max-w-[800px] mx-auto font-sans min-h-[1120px] flex flex-col"
+        className="bg-white text-black px-3 py-8 mx-auto font-sans w-[794px] min-h-[1123px] flex flex-col"
         style={{ fontSize: '12px' }}
       >
         {/* Header */}
@@ -62,7 +62,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               alt="ARK Maintenance"
               width={180}
               height={72}
-              style={{ width: 'auto', height: '60px' }}
+              style={{ width: 'auto', height: '68px' }}
             />
             <div className="mt-2 text-gray-600 text-xs">
               <p>Kingston: 71 First Street, Newport Blvd.</p>

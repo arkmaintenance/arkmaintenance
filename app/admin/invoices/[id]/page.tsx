@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { InvoiceTemplate } from '@/components/templates/invoice-template'
-import { downloadInvoicePdf } from '@/lib/client-pdf-download'
+import { downloadInvoicePdf, printInvoicePdf } from '@/lib/client-pdf-download'
+import { getInvoiceJobSubject } from '@/lib/invoice-job-subject'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,8 @@ interface Invoice {
   } | null
 }
 
+const calculateLineAmount = (item: Partial<InvoiceItem>) => Number(item.qty || 0) * Number(item.unit_price || 0)
+
 export default function InvoicePreviewPage() {
   const params = useParams()
   const router = useRouter()
@@ -54,11 +57,17 @@ export default function InvoicePreviewPage() {
   const [editedNotes, setEditedNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [printingPdf, setPrintingPdf] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [clientEmail, setClientEmail] = useState<string | undefined>()
   const [markingPaid, setMarkingPaid] = useState(false)
   const templateRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+  const getCleanInvoiceTitle = (title: string | null | undefined) => getInvoiceJobSubject(title, {
+    invoiceNumber: invoice?.invoice_number,
+    clientName: invoice?.clients?.contact_name,
+    companyName: invoice?.clients?.company_name,
+  })
 
   useEffect(() => {
     async function fetchInvoice() {
@@ -88,14 +97,23 @@ export default function InvoicePreviewPage() {
       // Parse items if they're stored as JSON string
       const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items || []
       // Normalize items to use consistent field names
-      const normalizedItems = items.map((item: any) => ({
-        description: item.description || '',
-        qty: item.qty || item.quantity || 1,
-        unit_price: item.unit_price || item.rate || 0,
-        amount: item.amount || 0
-      }))
+      const normalizedItems = items.map((item: any) => {
+        const qty = Number(item.qty || item.quantity || 1)
+        const unit_price = Number(item.unit_price || item.rate || 0)
+
+        return {
+          description: item.description || '',
+          qty,
+          unit_price,
+          amount: calculateLineAmount({ qty, unit_price }),
+        }
+      })
       setEditedItems(normalizedItems)
-      setEditedTitle(data.title || '')
+      setEditedTitle(getInvoiceJobSubject(data.title, {
+        invoiceNumber: data.invoice_number,
+        clientName: data.clients?.contact_name,
+        companyName: data.clients?.company_name,
+      }))
       setEditedNotes(data.notes || '')
       setClientEmail(data.clients?.email)
       setLoading(false)
@@ -103,10 +121,6 @@ export default function InvoicePreviewPage() {
 
     fetchInvoice()
   }, [params.id, router, supabase])
-
-  const handlePrint = () => {
-    window.print()
-  }
 
   const handleStartEdit = () => {
     setIsEditing(true)
@@ -116,14 +130,19 @@ export default function InvoicePreviewPage() {
     // Reset to original values
     if (invoice) {
       const items = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items || []
-      const normalizedItems = items.map((item: any) => ({
-        description: item.description || '',
-        qty: item.qty || item.quantity || 1,
-        unit_price: item.unit_price || item.rate || 0,
-        amount: item.amount || 0
-      }))
+      const normalizedItems = items.map((item: any) => {
+        const qty = Number(item.qty || item.quantity || 1)
+        const unit_price = Number(item.unit_price || item.rate || 0)
+
+        return {
+          description: item.description || '',
+          qty,
+          unit_price,
+          amount: calculateLineAmount({ qty, unit_price }),
+        }
+      })
       setEditedItems(normalizedItems)
-      setEditedTitle(invoice.title || '')
+      setEditedTitle(getCleanInvoiceTitle(invoice.title))
       setEditedNotes(invoice.notes || '')
     }
     setIsEditing(false)
@@ -132,16 +151,21 @@ export default function InvoicePreviewPage() {
   const handleSave = async () => {
     if (!invoice) return
     setSaving(true)
+    const cleanedTitle = getCleanInvoiceTitle(editedTitle)
 
     // Recalculate totals
-    const subtotal = editedItems.reduce((sum, item) => sum + item.amount, 0)
+    const recalculatedItems = editedItems.map((item) => ({
+      ...item,
+      amount: calculateLineAmount(item),
+    }))
+    const subtotal = recalculatedItems.reduce((sum, item) => sum + item.amount, 0)
     const total = subtotal // Add tax calculation if needed
 
     const { error } = await supabase
       .from('invoices')
       .update({
-        title: editedTitle,
-        items: editedItems,
+        title: cleanedTitle,
+        items: recalculatedItems,
         subtotal,
         total,
         balance_due: total - (Number(invoice.total) - Number(invoice.balance_due)),
@@ -158,13 +182,14 @@ export default function InvoicePreviewPage() {
     // Update local state
     setInvoice({
       ...invoice,
-      title: editedTitle,
-      items: editedItems,
+      title: cleanedTitle,
+      items: recalculatedItems,
       subtotal,
       total,
       balance_due: total - (Number(invoice.total) - Number(invoice.balance_due)),
       notes: editedNotes
     })
+    setEditedItems(recalculatedItems)
 
     toast.success('Invoice updated successfully')
     setIsEditing(false)
@@ -235,7 +260,7 @@ export default function InvoicePreviewPage() {
       user_id: user.id,
       client_id: (invoice as any).client_id || null,
       invoice_number: newNum,
-      title: invoice.title,
+      title: getCleanInvoiceTitle(invoice.title),
       items: invoice.items,
       subtotal: invoice.subtotal,
       total: invoice.total,
@@ -263,12 +288,30 @@ export default function InvoicePreviewPage() {
     }
   }
 
+  async function handlePrint() {
+    if (!invoice) return
+
+    setPrintingPdf(true)
+    try {
+      await printInvoicePdf(invoiceData)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to print invoice PDF')
+    } finally {
+      setPrintingPdf(false)
+    }
+  }
+
   const whatsappMessage = invoice ? encodeURIComponent(`Hi, please find your invoice ${invoice.invoice_number} for JMD ${Number(invoice.total).toLocaleString()}. Thank you.`) : ''
   const whatsappUrl = `https://wa.me/?text=${whatsappMessage}`
 
   // Calculate subtotal and total from edited items
-  const subtotal = editedItems.reduce((sum, item) => sum + item.amount, 0)
+  const calculatedItems = editedItems.map((item) => ({
+    ...item,
+    amount: calculateLineAmount(item),
+  }))
+  const subtotal = calculatedItems.reduce((sum, item) => sum + item.amount, 0)
   const total = subtotal
+  const serviceDescription = getCleanInvoiceTitle(isEditing ? editedTitle : invoice.title)
 
   const invoiceData = {
     invoice_number: invoice.invoice_number,
@@ -278,7 +321,7 @@ export default function InvoicePreviewPage() {
       day: 'numeric'
     }),
     payment_terms: 'COD',
-    service_description: isEditing ? editedTitle : (invoice.title || 'AIR CONDITIONER SERVICING AND MAINTENANCE'),
+    service_description: serviceDescription,
     client: {
       name: invoice.clients?.contact_name || 'Client',
       company: invoice.clients?.company_name || '',
@@ -287,7 +330,7 @@ export default function InvoicePreviewPage() {
       parish: invoice.clients?.parish || '',
       email: invoice.clients?.email || ''
     },
-    items: isEditing ? editedItems : editedItems,
+    items: calculatedItems,
     subtotal: subtotal,
     total: total,
     balance_due: isEditing ? total : Number(invoice.balance_due) || 0
@@ -327,9 +370,9 @@ export default function InvoicePreviewPage() {
                 <Copy className="h-4 w-4" />
                 Duplicate
               </Button>
-              <Button variant="outline" onClick={handlePrint} className="gap-2 border-border">
+              <Button variant="outline" onClick={handlePrint} disabled={printingPdf} className="gap-2 border-border">
                 <Printer className="h-4 w-4" />
-                Print
+                {printingPdf ? 'Printing...' : 'Print'}
               </Button>
               <Button
                 variant="outline"

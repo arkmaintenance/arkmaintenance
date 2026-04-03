@@ -26,15 +26,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 11,
     paddingTop: 130, // Space for fixed header
-    paddingBottom: 330, // Space for fixed footer with totals, banking details, and service images
-    paddingHorizontal: 35,
+    paddingBottom: 310, // Space for fixed footer with totals, banking details, and service images
+    paddingHorizontal: 12,
   },
   // Fixed Header - appears on every page
   headerFixed: {
     position: 'absolute',
     top: 20,
-    left: 35,
-    right: 35,
+    left: 12,
+    right: 12,
   },
   headerContent: {
     flexDirection: 'row',
@@ -44,14 +44,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    width: 130,
-    height: 52,
-    marginBottom: 6,
+    width: 146,
+    height: 58,
+    marginBottom: 5,
   },
   companyInfo: {
     fontSize: 9,
     color: colors.gray,
-    lineHeight: 1.4,
+    lineHeight: 1,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   invoiceDetails: {
     fontSize: 10,
     textAlign: 'right',
-    lineHeight: 1.5,
+    lineHeight: 1,
   },
   invoiceLabel: {
     fontWeight: 600,
@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
   },
   // Bill To
   billToSection: {
-    marginTop: 5,
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 10,
@@ -83,25 +83,25 @@ const styles = StyleSheet.create({
     color: colors.dark,
     borderBottomWidth: 1,
     borderBottomColor: '#cccccc',
-    paddingBottom: 3,
-    marginBottom: 6,
+    paddingBottom: 2,
+    marginBottom: 4,
   },
   clientName: {
     fontSize: 10,
     fontWeight: 600,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   clientInfo: {
     fontSize: 9,
     color: colors.gray,
-    lineHeight: 1.4,
+    lineHeight: 1.1,
   },
   // Service Description Banner
   serviceBanner: {
     backgroundColor: colors.dark,
-    paddingVertical: 5,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   serviceBannerText: {
     color: colors.white,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: colors.secondary,
-    paddingVertical: 5,
+    paddingVertical: 4,
     paddingHorizontal: 6,
   },
   tableHeaderCell: {
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 4,
+    paddingVertical: 3,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
@@ -138,6 +138,10 @@ const styles = StyleSheet.create({
   tableCell: {
     fontSize: 9,
     color: colors.black,
+  },
+  amountCell: {
+    color: colors.primary,
+    fontWeight: 700,
   },
   // Column widths
   colNumber: { width: '6%' },
@@ -157,7 +161,7 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 2,
+    paddingVertical: 1.5,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
@@ -174,13 +178,23 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: colors.black,
   },
+  invoiceTotalLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.primary,
+  },
+  invoiceTotalValue: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.primary,
+  },
   balanceDueLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.primary,
   },
   balanceDueValue: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.primary,
   },
@@ -230,8 +244,8 @@ const styles = StyleSheet.create({
   footerFixed: {
     position: 'absolute',
     bottom: 8,
-    left: 35,
-    right: 35,
+    left: 12,
+    right: 12,
   },
   gradientBar: {
     height: 4,
@@ -256,7 +270,7 @@ const styles = StyleSheet.create({
   },
   footerImageCard: {
     flex: 1,
-    height: 145,
+    height: 125,
     borderRadius: 4,
     backgroundColor: colors.lightGray,
     alignItems: 'center',
@@ -280,10 +294,19 @@ const styles = StyleSheet.create({
   },
   footerTitle: {
     fontSize: 6.2,
-    fontWeight: 600,
-    color: colors.primary,
+    fontWeight: 700,
+    color: '#2563EB',
     textAlign: 'center',
     marginBottom: 1,
+    letterSpacing: 1.3,
+  },
+  footerLabelOrange: {
+    color: colors.primary,
+    fontWeight: 700,
+  },
+  footerLabelBlue: {
+    color: '#2563EB',
+    fontWeight: 700,
   },
   thankYou: {
     fontSize: 5.2,
@@ -335,7 +358,7 @@ interface InvoicePdfDocumentProps {
 }
 
 export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
-  const minimumVisibleRows = 11
+  const minimumVisibleRows = 14
   const fillerRows = Array.from({
     length: Math.max(0, minimumVisibleRows - data.items.length),
   })
@@ -348,6 +371,9 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
     { label: 'Account Type', value: 'Savings' },
   ]
   const formatCurrency = (amount: number) => `JMD ${amount.toLocaleString()}`
+  const calculateLineTotal = (item: InvoiceItem) => Number(item.qty || 0) * Number(item.unit_price || 0)
+  const calculatedSubtotal = data.items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
+  const calculatedTotal = calculatedSubtotal
 
   return (
     <Document>
@@ -426,7 +452,7 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
               <Text style={[styles.tableCell, styles.colDescription]}>{item.description}</Text>
               <Text style={[styles.tableCell, styles.colQty]}>{item.qty}</Text>
               <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(item.unit_price)}</Text>
-              <Text style={[styles.tableCell, styles.colAmount]}>{formatCurrency(item.amount)}</Text>
+              <Text style={[styles.tableCell, styles.colAmount, styles.amountCell]}>{formatCurrency(calculateLineTotal(item))}</Text>
             </View>
           ))}
           {fillerRows.map((_, index) => {
@@ -454,11 +480,11 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
             <View style={styles.totalsBox}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Subtotal:</Text>
-                <Text style={styles.totalValue}>{formatCurrency(data.subtotal)}</Text>
+                <Text style={styles.totalValue}>{formatCurrency(calculatedSubtotal)}</Text>
               </View>
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total:</Text>
-                <Text style={styles.totalValue}>{formatCurrency(data.total)}</Text>
+                <Text style={styles.invoiceTotalLabel}>Total:</Text>
+                <Text style={styles.invoiceTotalValue}>{formatCurrency(calculatedTotal)}</Text>
               </View>
               <View style={[styles.totalRow, styles.totalRowLast]}>
                 <Text style={styles.balanceDueLabel}>Balance Due:</Text>
@@ -499,12 +525,18 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
               ) : null}
             </View>
           </View>
-          <Text style={styles.footerTitle}>OUR PROFESSIONAL SERVICES</Text>
+          <Text style={styles.footerTitle}>+ OUR PROFESSIONAL SERVICES +</Text>
           <Text style={styles.footerText}>
-            AIR COND./REFRIGERATION: SALES + SERVICE + REPAIR + INSTALLATION | KITCHEN EXHAUST: FABRICATION + MAINTENANCE + REPAIRS
+            <Text style={styles.footerLabelOrange}>AIR COND./REFRIGERATION:</Text>
+            <Text> SALES + SERVICE + REPAIR + INSTALLATION | </Text>
+            <Text style={styles.footerLabelBlue}>KITCHEN EXHAUST:</Text>
+            <Text> FABRICATION + MAINTENANCE + REPAIRS</Text>
           </Text>
           <Text style={styles.footerText}>
-            KITCHEN EQUIPMENT: CLEANING + REPAIRS + SALES | DEEP CLEANING: DE-GREASING + DE-SCALING
+            <Text style={styles.footerLabelOrange}>KITCHEN EQUIPMENT:</Text>
+            <Text> CLEANING + REPAIRS + SALES | </Text>
+            <Text style={styles.footerLabelBlue}>DEEP CLEANING:</Text>
+            <Text> DE-GREASING + DE-SCALING</Text>
           </Text>
           <Text style={styles.thankYou}>
             Thank you for choosing ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd | www.arkmaintenance.com

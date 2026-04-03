@@ -78,7 +78,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
     .invoice-container {
       width: 100%;
       min-height: 100%;
-      padding: 40px 45px;
+      padding: 40px 16px;
       background: #ffffff;
     }
     .header-section {

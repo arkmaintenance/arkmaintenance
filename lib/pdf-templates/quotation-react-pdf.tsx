@@ -27,14 +27,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     paddingTop: 130, // Space for fixed header
     paddingBottom: 250, // Space for fixed footer with service images
-    paddingHorizontal: 35,
+    paddingHorizontal: 12,
   },
   // Fixed Header - appears on every page
   headerFixed: {
     position: 'absolute',
     top: 20,
-    left: 35,
-    right: 35,
+    left: 12,
+    right: 12,
   },
   headerContent: {
     flexDirection: 'row',
@@ -44,9 +44,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    width: 130,
-    height: 52,
-    marginBottom: 6,
+    width: 146,
+    height: 58,
+    marginBottom: 5,
   },
   companyInfo: {
     fontSize: 9,
@@ -247,8 +247,8 @@ const styles = StyleSheet.create({
   footerFixed: {
     position: 'absolute',
     bottom: 8,
-    left: 35,
-    right: 35,
+    left: 12,
+    right: 12,
   },
   gradientBar: {
     height: 3,

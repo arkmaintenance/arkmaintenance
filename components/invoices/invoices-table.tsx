@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { SendInvoiceDialog } from '@/components/invoices/send-invoice-dialog'
 import { downloadInvoicePdf } from '@/lib/client-pdf-download'
+import { getInvoiceJobSubject } from '@/lib/invoice-job-subject'
 import { 
   Search, 
   Eye,
@@ -175,7 +176,11 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
           day: 'numeric',
         }),
         payment_terms: 'COD',
-        service_description: data.title || 'AIR CONDITIONER SERVICING AND MAINTENANCE',
+        service_description: getInvoiceJobSubject(data.title, {
+          invoiceNumber: data.invoice_number,
+          clientName: data.clients?.contact_name,
+          companyName: data.clients?.company_name,
+        }),
         client: {
           name: data.clients?.contact_name || 'Client',
           company: data.clients?.company_name || '',

@@ -81,7 +81,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
     .quotation-container {
       width: 100%;
       min-height: 100%;
-      padding: 40px 45px;
+      padding: 40px 16px;
       background: #ffffff;
     }
     .header-section {
