@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 11,
     paddingTop: 130, // Space for fixed header
-    paddingBottom: 212, // Space for fixed footer with service images
+    paddingBottom: 250, // Space for fixed footer with service images
     paddingHorizontal: 35,
   },
   // Fixed Header - appears on every page
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   // Table
   table: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   totalsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   totalsBox: {
     width: 170,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightGray,
     padding: 8,
     borderRadius: 4,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   timelineTitle: {
     fontSize: 9,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 4,
     padding: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   bankingTitle: {
     fontSize: 9,
@@ -265,10 +265,9 @@ const styles = StyleSheet.create({
   },
   footerImageCard: {
     flex: 1,
-    height: 122,
+    height: 145,
     borderRadius: 4,
     backgroundColor: colors.lightGray,
-    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
   footerServiceImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
+    objectFit: 'cover',
   },
   footerText: {
     fontSize: 6,
@@ -331,6 +330,11 @@ interface QuotationData {
   items: QuotationItem[]
   subtotal: number
   total: number
+  assets?: {
+    logo?: string
+    footerLeft?: string
+    footerRight?: string
+  }
 }
 
 interface QuotationPdfDocumentProps {
@@ -338,6 +342,10 @@ interface QuotationPdfDocumentProps {
 }
 
 export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
+  const minimumVisibleRows = data.timeline ? 6 : 8
+  const fillerRows = Array.from({
+    length: Math.max(0, minimumVisibleRows - data.items.length),
+  })
   const formatCurrency = (amount: number) => `JMD ${amount.toLocaleString()}`
 
   return (
@@ -347,10 +355,12 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
         <View style={styles.headerFixed} fixed>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
-              <Image
-                src="https://arkmaintenance.com/images/ark-logo.png"
-                style={styles.logo}
-              />
+              {data.assets?.logo ? (
+                <Image
+                  src={data.assets.logo}
+                  style={styles.logo}
+                />
+              ) : null}
               <View style={styles.companyInfo}>
                 <Text>Kingston: 71 First Street, Newport Blvd.</Text>
                 <Text>Tel: 876-514-4020 / 876-476-1748</Text>
@@ -417,7 +427,32 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
               <Text style={[styles.tableCell, styles.colAmount]}>{formatCurrency(item.amount)}</Text>
             </View>
           ))}
+          {fillerRows.map((_, index) => {
+            const rowIndex = data.items.length + index
+
+            return (
+              <View
+                key={`filler-${index}`}
+                style={[styles.tableRow, rowIndex % 2 === 0 ? styles.tableRowEven : {}]}
+                wrap={false}
+              >
+                <Text style={[styles.tableCell, styles.colNumber]}> </Text>
+                <Text style={[styles.tableCell, styles.colDescription]}> </Text>
+                <Text style={[styles.tableCell, styles.colQty]}> </Text>
+                <Text style={[styles.tableCell, styles.colPrice]}> </Text>
+                <Text style={[styles.tableCell, styles.colAmount]}> </Text>
+              </View>
+            )
+          })}
         </View>
+
+        {/* Timeline */}
+        {data.timeline && (
+          <View style={styles.timelineSection} wrap={false}>
+            <Text style={styles.timelineTitle}>TIMELINE</Text>
+            <Text style={styles.timelineText}>{data.timeline}</Text>
+          </View>
+        )}
 
         {/* Totals */}
         <View style={styles.totalsContainer} wrap={false}>
@@ -432,14 +467,6 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
             </View>
           </View>
         </View>
-
-        {/* Timeline */}
-        {data.timeline && (
-          <View style={styles.timelineSection} wrap={false}>
-            <Text style={styles.timelineTitle}>TIMELINE</Text>
-            <Text style={styles.timelineText}>{data.timeline}</Text>
-          </View>
-        )}
 
         {/* Banking Details */}
         <View style={styles.bankingSection} wrap={false}>
@@ -480,16 +507,20 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
           </View>
           <View style={styles.footerImageRow}>
             <View style={[styles.footerImageCard, styles.footerImageCardLeft]}>
-              <Image
-                src="https://arkmaintenance.com/images/exhaust-service.jpg"
-                style={styles.footerServiceImage}
-              />
+              {data.assets?.footerLeft ? (
+                <Image
+                  src={data.assets.footerLeft}
+                  style={styles.footerServiceImage}
+                />
+              ) : null}
             </View>
             <View style={styles.footerImageCard}>
-              <Image
-                src="https://arkmaintenance.com/images/ac-service.png"
-                style={styles.footerServiceImage}
-              />
+              {data.assets?.footerRight ? (
+                <Image
+                  src={data.assets.footerRight}
+                  style={styles.footerServiceImage}
+                />
+              ) : null}
             </View>
           </View>
           <Text style={styles.footerTitle}>OUR PROFESSIONAL SERVICES</Text>

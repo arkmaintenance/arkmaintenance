@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 11,
     paddingTop: 130, // Space for fixed header
-    paddingBottom: 290, // Space for fixed footer with taller service images
+    paddingBottom: 250, // Space for fixed footer with service images
     paddingHorizontal: 35,
   },
   // Fixed Header - appears on every page
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   // Table
   table: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   totalsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   totalsBox: {
     width: 170,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 4,
     padding: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   bankingTitle: {
     fontSize: 9,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   footerImageCard: {
     flex: 1,
-    height: 200,
+    height: 145,
     borderRadius: 4,
     backgroundColor: colors.lightGray,
     alignItems: 'center',
@@ -325,6 +325,10 @@ interface InvoicePdfDocumentProps {
 }
 
 export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
+  const minimumVisibleRows = 8
+  const fillerRows = Array.from({
+    length: Math.max(0, minimumVisibleRows - data.items.length),
+  })
   const formatCurrency = (amount: number) => `JMD ${amount.toLocaleString()}`
 
   return (
@@ -407,6 +411,23 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
               <Text style={[styles.tableCell, styles.colAmount]}>{formatCurrency(item.amount)}</Text>
             </View>
           ))}
+          {fillerRows.map((_, index) => {
+            const rowIndex = data.items.length + index
+
+            return (
+              <View
+                key={`filler-${index}`}
+                style={[styles.tableRow, rowIndex % 2 === 0 ? styles.tableRowEven : {}]}
+                wrap={false}
+              >
+                <Text style={[styles.tableCell, styles.colNumber]}> </Text>
+                <Text style={[styles.tableCell, styles.colDescription]}> </Text>
+                <Text style={[styles.tableCell, styles.colQty]}> </Text>
+                <Text style={[styles.tableCell, styles.colPrice]}> </Text>
+                <Text style={[styles.tableCell, styles.colAmount]}> </Text>
+              </View>
+            )
+          })}
         </View>
 
         {/* Totals and Banking Details - Keep together */}

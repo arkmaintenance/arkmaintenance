@@ -34,8 +34,18 @@ interface QuotationTemplateProps {
 
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ data }, ref) => {
+    const hasDiscountColumn = data.items.some(item => item.discount)
+    const minimumVisibleRows = data.timeline ? 6 : 8
+    const fillerRows = Array.from({
+      length: Math.max(0, minimumVisibleRows - data.items.length),
+    })
+
     return (
-      <div ref={ref} className="bg-white text-black p-8 max-w-[800px] mx-auto font-sans" style={{ fontSize: '12px' }}>
+      <div
+        ref={ref}
+        className="bg-white text-black p-8 max-w-[800px] mx-auto font-sans min-h-[1120px] flex flex-col"
+        style={{ fontSize: '12px' }}
+      >
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
@@ -78,14 +88,14 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
 
         {/* Items Table */}
-        <table className="w-full mb-6 border-collapse">
+        <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gradient-to-r from-[#00BFFF] via-[#FF6B00] to-[#FF6B00]">
               <th className="text-white text-left py-2 px-3 text-sm">#</th>
               <th className="text-white text-left py-2 px-3 text-sm">Description</th>
               <th className="text-white text-center py-2 px-3 text-sm">Qty</th>
               <th className="text-white text-right py-2 px-3 text-sm">Unit Price</th>
-              {data.items.some(item => item.discount) && (
+              {hasDiscountColumn && (
                 <th className="text-white text-right py-2 px-3 text-sm">Discount</th>
               )}
               <th className="text-white text-right py-2 px-3 text-sm">Amount</th>
@@ -98,7 +108,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 <td className="py-2 px-3 border-b border-gray-200">{item.description}</td>
                 <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
                 <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
-                {data.items.some(i => i.discount) && (
+                {hasDiscountColumn && (
                   <td className="py-2 px-3 border-b border-gray-200 text-right text-red-500">
                     {item.discount ? `$ ${item.discount.toLocaleString()}` : ''}
                   </td>
@@ -106,61 +116,77 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.amount.toLocaleString()}</td>
               </tr>
             ))}
+            {fillerRows.map((_, index) => {
+              const rowIndex = data.items.length + index
+
+              return (
+                <tr key={`filler-${index}`} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                  {hasDiscountColumn && (
+                    <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                  )}
+                  <td className="py-2 px-3 border-b border-gray-200">&nbsp;</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
-        {/* Totals */}
-        <div className="flex justify-end mb-6">
-          <div className="w-64">
-            <div className="flex justify-between py-1 border-b border-gray-200">
-              <span className="font-semibold">Subtotal:</span>
-              <span>JMD {data.subtotal.toLocaleString()}</span>
+        <div className="mt-auto pt-4">
+          {/* Timeline */}
+          {data.timeline && (
+            <div className="bg-gray-100 p-4 rounded mb-3">
+              <h3 className="font-bold text-gray-800 mb-2">TIMELINE</h3>
+              <p className="text-sm">{data.timeline}</p>
             </div>
-            <div className="flex justify-between py-1 font-bold text-[#FF6B00]">
-              <span>Total:</span>
-              <span>JMD {data.total.toLocaleString()}</span>
+          )}
+
+          {/* Totals */}
+          <div className="flex justify-end mb-3">
+            <div className="w-64">
+              <div className="flex justify-between py-1 border-b border-gray-200">
+                <span className="font-semibold">Subtotal:</span>
+                <span>JMD {data.subtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between py-1 font-bold text-[#FF6B00]">
+                <span>Total:</span>
+                <span>JMD {data.total.toLocaleString()}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Timeline */}
-        {data.timeline && (
-          <div className="bg-gray-100 p-4 rounded mb-6">
-            <h3 className="font-bold text-gray-800 mb-2">TIMELINE</h3>
-            <p className="text-sm">{data.timeline}</p>
+          {/* Banking Details */}
+          <div className="border-2 border-[#FF6B00] rounded p-4 mb-3 bg-white">
+            <h3 className="font-bold text-[#FF6B00] text-center uppercase tracking-wide mb-3 text-sm">Banking Details</h3>
+            <div className="h-px bg-[#FF6B00] mb-3" />
+            <div className="space-y-1 text-sm">
+              <p><span className="font-bold text-[#1a1a2e]">Bank:</span> First Global Bank</p>
+              <p><span className="font-bold text-[#1a1a2e]">Branch:</span> Ocho Rios</p>
+              <p><span className="font-bold text-[#1a1a2e]">Name:</span> ARK Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd.</p>
+              <p><span className="font-bold text-[#1a1a2e]">Branch Code:</span> 99094</p>
+              <p><span className="font-bold text-[#1a1a2e]">Account Number:</span> 99094 0006 439</p>
+              <p><span className="font-bold text-[#1a1a2e]">Account Type:</span> Savings</p>
+            </div>
           </div>
-        )}
 
-        {/* Banking Details */}
-        <div className="border-2 border-[#FF6B00] rounded p-4 mb-6 bg-white">
-          <h3 className="font-bold text-[#FF6B00] text-center uppercase tracking-wide mb-3 text-sm">Banking Details</h3>
-          <div className="h-px bg-[#FF6B00] mb-3" />
-          <div className="space-y-1 text-sm">
-            <p><span className="font-bold text-[#1a1a2e]">Bank:</span> First Global Bank</p>
-            <p><span className="font-bold text-[#1a1a2e]">Branch:</span> Ocho Rios</p>
-            <p><span className="font-bold text-[#1a1a2e]">Name:</span> ARK Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd.</p>
-            <p><span className="font-bold text-[#1a1a2e]">Branch Code:</span> 99094</p>
-            <p><span className="font-bold text-[#1a1a2e]">Account Number:</span> 99094 0006 439</p>
-            <p><span className="font-bold text-[#1a1a2e]">Account Type:</span> Savings</p>
-          </div>
-        </div>
-
-        {/* Footer with service images */}
-        <div className="mt-4">
+          {/* Footer with service images */}
           <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-3"></div>
           <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50 p-1" style={{ height: '130px' }}>
+            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
               <img
-                src="/images/exhaust-service.jpg"
+                src="/images/1.jpeg"
                 alt="ARK Kitchen Exhaust Service"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
               />
             </div>
-            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50 p-1" style={{ height: '130px' }}>
+            <div className="relative flex items-center justify-center overflow-hidden rounded bg-gray-50" style={{ height: '145px' }}>
               <img
-                src="/images/ac-service.png"
+                src="/images/2.jpeg"
                 alt="ARK AC Servicing"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
               />
             </div>
           </div>
