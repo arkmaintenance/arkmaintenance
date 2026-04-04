@@ -441,95 +441,130 @@ export function EditDocumentForm({
 
       {/* ── Line Items ── */}
       <div className="border border-[#3a3a5a] rounded-lg overflow-hidden">
-        {/* Table header */}
+        {/* Table header bar */}
         <div className="bg-[#0d0d1f] px-3 py-2 flex items-center justify-between">
           <span className="text-gray-300 text-xs font-semibold uppercase tracking-wider">Line Items</span>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={addSection}
               className="text-[#FF6B00] hover:text-[#FF6B00] hover:bg-[#FF6B00]/20 text-xs gap-1 h-7 px-2">
-              <Layers className="h-3.5 w-3.5" /> Add Section
+              <Layers className="h-3.5 w-3.5" /> + Section
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={addItem}
               className="text-[#00BCD4] hover:text-[#00BCD4] hover:bg-[#00BCD4]/20 text-xs gap-1 h-7 px-2">
-              <Plus className="h-3.5 w-3.5" /> Add Item
+              <Plus className="h-3.5 w-3.5" /> + Item
             </Button>
           </div>
         </div>
-        {/* Column labels */}
-        <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-[#141428] border-b border-[#3a3a5a]">
-          <div className="col-span-4 text-[10px] text-gray-500 font-semibold uppercase">Description</div>
-          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase">Qty</div>
-          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase">Unit Price</div>
-          <div className="col-span-1 text-[10px] text-gray-500 font-semibold uppercase">Disc.</div>
-          <div className="col-span-2 text-[10px] text-gray-500 font-semibold uppercase text-right">Amount</div>
-          <div className="col-span-1" />
+
+        {/* Scrollable table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px] border-collapse">
+            <thead>
+              <tr className="bg-[#141428] border-b border-[#3a3a5a]">
+                <th className="text-left text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[35%]">Description</th>
+                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[14%]">Qty (+ / −)</th>
+                <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[18%]">Unit Price (JMD)</th>
+                <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[12%]">Discount</th>
+                <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[14%]">Amount</th>
+                <th className="w-[7%] px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2a2a4a]">
+              {items.map((item, index) =>
+                item.section !== undefined ? (
+                  /* Section heading row */
+                  <tr key={index} className="bg-[#FF6B00]/10 border-l-4 border-[#FF6B00]">
+                    <td colSpan={6} className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5 text-[#FF6B00] shrink-0" />
+                        <Input value={item.section}
+                          onChange={e => updateItem(index, 'section', e.target.value)}
+                          placeholder="Section name..."
+                          className="bg-transparent border-none text-[#FF6B00] font-semibold text-sm p-0 h-auto focus-visible:ring-0 flex-1" />
+                        <button type="button" onClick={() => removeItem(index)}
+                          className="w-6 h-6 rounded bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  /* Line item row */
+                  <tr key={index} className="hover:bg-[#2a2a4a]/60">
+                    {/* Description combobox */}
+                    <td className="px-3 py-2">
+                      <Combobox value={item.description}
+                        onChange={v => updateItem(index, 'description', v)}
+                        options={lineDescriptions}
+                        placeholder="Type or select description..." />
+                    </td>
+                    {/* Qty with − / + */}
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-0.5 justify-center">
+                        <button type="button"
+                          onClick={() => updateItem(index, 'qty', Math.max(1, item.qty - 1))}
+                          className="w-6 h-6 rounded bg-red-900/50 text-red-300 text-xs flex items-center justify-center hover:bg-red-800 shrink-0">
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <Input type="number" value={item.qty}
+                          onChange={e => updateItem(index, 'qty', e.target.value)}
+                          className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-center px-1 w-14" min={1} />
+                        <button type="button"
+                          onClick={() => updateItem(index, 'qty', item.qty + 1)}
+                          className="w-6 h-6 rounded bg-[#00BCD4]/30 text-[#00BCD4] text-xs flex items-center justify-center hover:bg-[#00BCD4]/60 shrink-0">
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </td>
+                    {/* Unit Price */}
+                    <td className="px-2 py-2">
+                      <Input type="number" value={item.unit_price}
+                        onChange={e => updateItem(index, 'unit_price', e.target.value)}
+                        className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-right"
+                        min={0} placeholder="0" />
+                    </td>
+                    {/* Discount */}
+                    <td className="px-2 py-2">
+                      <Input type="number" value={item.discount}
+                        onChange={e => updateItem(index, 'discount', e.target.value)}
+                        className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-right"
+                        min={0} placeholder="0" />
+                    </td>
+                    {/* Amount (calculated) */}
+                    <td className="px-3 py-2 text-right font-bold text-[#FF6B00]">
+                      {item.amount.toLocaleString()}
+                    </td>
+                    {/* Delete */}
+                    <td className="px-2 py-2 text-center">
+                      <button type="button" onClick={() => removeItem(index)}
+                        className="w-7 h-7 rounded bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/70 mx-auto">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              )}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center text-gray-500 text-sm py-6">
+                    No items yet — click <span className="text-[#00BCD4] font-semibold">+ Item</span> to add one
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        {/* Rows */}
-        <div className="divide-y divide-[#2a2a4a]">
-          {items.map((item, index) =>
-            item.section !== undefined ? (
-              <div key={index} className="flex items-center gap-2 px-3 py-2 bg-[#FF6B00]/10 border-l-4 border-[#FF6B00]">
-                <Layers className="h-3.5 w-3.5 text-[#FF6B00] shrink-0" />
-                <Input value={item.section} onChange={e => updateItem(index, 'section', e.target.value)}
-                  placeholder="Section name..."
-                  className="bg-transparent border-none text-[#FF6B00] font-semibold text-sm p-0 h-auto focus-visible:ring-0 flex-1" />
-                <button type="button" onClick={() => removeItem(index)} className="text-red-400 hover:text-red-300 p-1">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div key={index} className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-[#2a2a4a]/60">
-                <div className="col-span-4">
-                  <Combobox value={item.description} onChange={v => updateItem(index, 'description', v)}
-                    options={lineDescriptions} placeholder="Description..." className="w-full" />
-                </div>
-                <div className="col-span-2">
-                  <div className="flex items-center gap-0.5">
-                    <button type="button" onClick={() => updateItem(index, 'qty', Math.max(1, item.qty - 1))}
-                      className="w-6 h-6 rounded bg-[#3a3a5a] text-white text-xs flex items-center justify-center hover:bg-red-800/60 shrink-0">
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)}
-                      className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-center px-1 w-full" min={1} />
-                    <button type="button" onClick={() => updateItem(index, 'qty', item.qty + 1)}
-                      className="w-6 h-6 rounded bg-[#3a3a5a] text-white text-xs flex items-center justify-center hover:bg-[#00BCD4]/60 shrink-0">
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <Input type="number" value={item.unit_price} onChange={e => updateItem(index, 'unit_price', e.target.value)}
-                    className="bg-[#2a2a4a] border-[#3a3a5a] text-white" min={0} />
-                </div>
-                <div className="col-span-1">
-                  <Input type="number" value={item.discount} onChange={e => updateItem(index, 'discount', e.target.value)}
-                    className="bg-[#2a2a4a] border-[#3a3a5a] text-white" min={0} />
-                </div>
-                <div className="col-span-2">
-                  <div className="text-right font-bold text-[#FF6B00] text-sm pr-1">
-                    {item.amount.toLocaleString()}
-                  </div>
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <button type="button" onClick={() => removeItem(index)}
-                    className="w-6 h-6 rounded bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            )
-          )}
-        </div>
-        {/* Footer totals */}
+
+        {/* Footer total row */}
         <div className="flex justify-between items-center px-4 py-3 bg-[#0d0d1f] border-t border-[#3a3a5a]">
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={addSection}
               className="text-[#FF6B00] hover:bg-[#FF6B00]/10 text-xs gap-1 h-7 px-2">
-              <Layers className="h-3.5 w-3.5" /> Add Section
+              <Layers className="h-3.5 w-3.5" /> + Section
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={addItem}
               className="text-[#00BCD4] hover:bg-[#00BCD4]/10 text-xs gap-1 h-7 px-2">
-              <Plus className="h-3.5 w-3.5" /> Add Item
+              <Plus className="h-3.5 w-3.5" /> + Item
             </Button>
           </div>
           <div className="text-[#FF6B00] font-bold text-base">
@@ -553,7 +588,11 @@ export function EditDocumentForm({
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Reset" onClick={() => setRecurringSchedule('one-time')}
+            <button type="button" title="Open" onClick={() => {}}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Reset to one-time" onClick={() => setRecurringSchedule('one-time')}
               className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -595,18 +634,28 @@ export function EditDocumentForm({
       {docType === 'quotation' && (
         <div className="space-y-2">
           <Label className="text-gray-300 text-sm font-medium">Scope of Work Template</Label>
-          <Select value={scopeTemplate || 'none'} onValueChange={v => setScopeTemplate(v === 'none' ? '' : v)}>
-            <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white">
-              <SelectValue placeholder="Select a scope of work template..." />
-            </SelectTrigger>
-            <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
-              <SelectItem value="none" className="text-gray-400 italic">None / Custom</SelectItem>
-              <SelectItem value="ac_servicing" className="text-white">16-Point Air Conditioning Servicing</SelectItem>
-              <SelectItem value="refrigeration" className="text-white">16-Point Refrigeration Servicing</SelectItem>
-              <SelectItem value="exhaust" className="text-white">Kitchen Exhaust System Checklist</SelectItem>
-              <SelectItem value="ice_machine" className="text-white">16-Point Ice Machine Servicing</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-1 items-center">
+            <Select value={scopeTemplate || 'none'} onValueChange={v => setScopeTemplate(v === 'none' ? '' : v)}>
+              <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1">
+                <SelectValue placeholder="Select a scope of work template..." />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                <SelectItem value="none" className="text-gray-400 italic">None / Custom</SelectItem>
+                <SelectItem value="ac_servicing" className="text-white">16-Point Air Conditioning Servicing</SelectItem>
+                <SelectItem value="refrigeration" className="text-white">16-Point Refrigeration Servicing</SelectItem>
+                <SelectItem value="exhaust" className="text-white">Kitchen Exhaust System Checklist</SelectItem>
+                <SelectItem value="ice_machine" className="text-white">16-Point Ice Machine Servicing</SelectItem>
+              </SelectContent>
+            </Select>
+            <button type="button" title="Open" onClick={() => {}}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Clear scope template" onClick={() => setScopeTemplate('')}
+              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {scopeTemplate && (
             <div className="text-xs text-[#00BCD4] bg-[#00BCD4]/10 border border-[#00BCD4]/30 rounded-md px-3 py-2">
               Template selected — scope appears on the printed quotation below totals and banking details.
@@ -635,7 +684,11 @@ export function EditDocumentForm({
             <div className="flex gap-1 items-center">
               <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)}
                 className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
-              <button type="button" onClick={() => setValidUntil('')}
+              <button type="button" title="Set date" onClick={() => {}}
+                className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" title="Clear date" onClick={() => setValidUntil('')}
                 className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
                 <Minus className="h-3.5 w-3.5" />
               </button>
@@ -644,17 +697,27 @@ export function EditDocumentForm({
         )}
         <div className="space-y-1">
           <Label className="text-gray-300 text-sm font-medium">Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
-              {(docType === 'quotation'
-                ? ['pending','sent','accepted','rejected','expired']
-                : ['draft','sent','paid','overdue','cancelled']
-              ).map(s => (
-                <SelectItem key={s} value={s} className="text-white capitalize">{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-1 items-center">
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                {(docType === 'quotation'
+                  ? ['pending','sent','accepted','rejected','expired']
+                  : ['draft','sent','paid','overdue','cancelled']
+                ).map(s => (
+                  <SelectItem key={s} value={s} className="text-white capitalize">{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button type="button" title="Open" onClick={() => {}}
+              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" title="Reset status" onClick={() => setStatus(docType === 'quotation' ? 'pending' : 'draft')}
+              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
