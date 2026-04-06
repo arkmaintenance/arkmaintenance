@@ -75,10 +75,15 @@ const Combobox = forwardRef<HTMLInputElement, {
   placeholder?: string
   className?: string
 }>(function Combobox({ value, onChange, options, placeholder, className = '' }, forwardedRef) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState(value)
+  const [open, setOpen]       = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [query, setQuery]     = useState(value)
+  const [pos, setPos]         = useState({ top: 0, left: 0, width: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef     = useRef<HTMLInputElement>(null)
+  const dropRef      = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setMounted(true) }, [])
 
   // Expose internal input to parent via forwardedRef
   useEffect(() => {
@@ -89,17 +94,49 @@ const Combobox = forwardRef<HTMLInputElement, {
 
   useEffect(() => { setQuery(value) }, [value])
 
+  // Close on outside click
   useEffect(() => {
+    if (!open) return
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+      if (
+        dropRef.current && !dropRef.current.contains(e.target as Node) &&
+        containerRef.current && !containerRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [open])
+
+  // Compute portal position whenever open
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const r = containerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width })
+    }
+  }, [open])
 
   const filtered = query.trim() === ''
     ? options
     : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+
+  const dropdown = filtered.length > 0 && (
+    <div
+      ref={dropRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99998 }}
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto"
+    >
+      {filtered.map((opt, i) => (
+        <button
+          key={i}
+          type="button"
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
+          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div ref={containerRef} className={`relative flex-1 ${className}`}>
@@ -120,20 +157,7 @@ const Combobox = forwardRef<HTMLInputElement, {
           <ChevronDown className="h-3 w-3" />
         </button>
       </div>
-      {open && filtered.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-xl max-h-48 overflow-y-auto">
-          {filtered.map((opt, i) => (
-            <button
-              key={i}
-              type="button"
-              className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
-              onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
+      {mounted && open && createPortal(dropdown, document.body)}
     </div>
   )
 })
@@ -435,7 +459,7 @@ export function EditDocumentForm({
   const [lineDescriptions, setLineDescriptions] = useState<string[]>([])
   const [serviceOptions, setServiceOptions] = useState<{ name: string; description: string; base_price: number }[]>([])
 
-  // ── Form state ──────────────────────────────────���───────────────────────────
+  // ���─ Form state ──────────────────────────────────���───────────────────────────
   const [title, setTitle] = useState(initialValues.title)
   const [contactPerson, setContactPerson] = useState(initialValues.contactPerson)
   const [serviceLocation, setServiceLocation] = useState(initialValues.serviceLocation)
