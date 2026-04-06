@@ -45,10 +45,6 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
     const calculateLineTotal = (item: InvoiceItem) => Number(item.qty || 0) * Number(item.unit_price || 0)
     const calculatedSubtotal = data.items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
     const calculatedTotal = calculatedSubtotal
-    const contractType = data.isServiceContract ? 'SERVICE CONTRACT' : 'STANDARD INVOICE'
-    const scheduleLabel = data.recurringSchedule
-      ? data.recurringSchedule.charAt(0).toUpperCase() + data.recurringSchedule.slice(1).replace('-', ' ')
-      : 'One-time'
     const paymentMethodLabel: Record<string, string> = {
       cash: 'Cash',
       bank_transfer: 'Bank Transfer',
@@ -174,19 +170,11 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             </div>
           </div>
 
-          {/* Contract Type / Schedule / Timeline — 3 boxes */}
-          <div className="grid grid-cols-3 gap-0 mb-3 border border-gray-300 rounded-md overflow-hidden">
-            <div className="bg-[#1a1a2e] px-3 py-2 text-center">
-              <p className="text-gray-400 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Contract Type</p>
-              <p className="text-white font-extrabold text-[13px] uppercase leading-tight">{contractType}</p>
-            </div>
-            <div className="bg-orange-50 border-x border-gray-300 px-3 py-2 text-center">
-              <p className="text-[#FF6B00] text-[9px] font-semibold uppercase tracking-widest mb-0.5">Schedule</p>
-              <p className="text-[#FF6B00] font-extrabold text-[13px] capitalize leading-tight">{scheduleLabel}</p>
-            </div>
-            <div className="bg-green-50 border border-green-200 px-3 py-2 text-center">
-              <p className="text-green-700 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Timeline</p>
-              <p className="text-green-700 font-extrabold text-[13px] leading-tight">{data.timeline || '3 Days'}</p>
+          {/* Payment Terms box for invoices (no Schedule/Timeline - those are for quotations only) */}
+          <div className="flex mb-3 border border-gray-300 rounded-md overflow-hidden">
+            <div className="bg-[#1a1a2e] px-4 py-2 text-center flex-1">
+              <p className="text-gray-400 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Payment Terms</p>
+              <p className="text-white font-extrabold text-[13px] uppercase leading-tight">{data.payment_terms || 'COD'}</p>
             </div>
           </div>
 
