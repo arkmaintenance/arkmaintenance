@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, forwardRef } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -215,43 +216,72 @@ function DatePickerField({
   onChange,
 }: {
   label: string
-  value: string   // YYYY-MM-DD
+  value: string
   onChange: (v: string) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [open, setOpen]         = useState(false)
+  const [mounted, setMounted]   = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
+  const today  = new Date()
 
-  // Parse current value into year/month/day
-  const today = new Date()
-  const parsed = value ? new Date(value + 'T00:00:00') : today
-  const [viewYear, setViewYear] = useState(parsed.getFullYear())
-  const [viewMonth, setViewMonth] = useState(parsed.getMonth())
+  // portal only works client-side
+  useEffect(() => { setMounted(true) }, [])
+
+  // Derive view month/year from value; re-sync when value changes (e.g. loaded from DB)
+  const toYM = (v: string) => {
+    if (!v) return { y: today.getFullYear(), m: today.getMonth() }
+    const d = new Date(v + 'T00:00:00')
+    return { y: d.getFullYear(), m: d.getMonth() }
+  }
+  const [viewYear,  setViewYear]  = useState(() => toYM(value).y)
+  const [viewMonth, setViewMonth] = useState(() => toYM(value).m)
+  useEffect(() => {
+    const { y, m } = toYM(value)
+    setViewYear(y)
+    setViewMonth(m)
+  }, [value])
+
+  // Position the floating popup under the button
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const updatePos = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: r.width })
+    }
+  }
+  useEffect(() => {
+    if (open) updatePos()
+  }, [open])
 
   // Close on outside click
   useEffect(() => {
+    if (!open) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (
+        popRef.current && !popRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [open])
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
   const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
 
-  // Build calendar grid
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay()
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay()
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
-  // pad to full rows
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const selectedDay   = value ? new Date(value + 'T00:00:00').getDate()     : null
-  const selectedMonth = value ? new Date(value + 'T00:00:00').getMonth()    : null
-  const selectedYear  = value ? new Date(value + 'T00:00:00').getFullYear() : null
+  const selParts = value ? (() => {
+    const d = new Date(value + 'T00:00:00')
+    return { day: d.getDate(), month: d.getMonth(), year: d.getFullYear() }
+  })() : null
 
   const selectDay = (day: number) => {
     const mm = String(viewMonth + 1).padStart(2, '0')
@@ -269,96 +299,116 @@ function DatePickerField({
     else setViewMonth(m => m + 1)
   }
 
+  const goToday = () => {
+    const d = new Date()
+    onChange(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
+    setOpen(false)
+  }
+
   const displayValue = value
     ? new Date(value + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
     : 'Pick a date'
 
+  const popup = (
+    <div
+      ref={popRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, zIndex: 99999, minWidth: 272 }}
+      className="bg-[#1a1a2e] border border-[#00BCD4]/40 rounded-xl shadow-2xl p-3"
+    >
+      {/* Month / Year nav */}
+      <div className="flex items-center justify-between mb-3">
+        <button type="button" onClick={prevMonth}
+          className="w-8 h-8 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center text-lg font-bold">
+          ‹
+        </button>
+        <div className="flex items-center gap-1">
+          <select
+            value={viewMonth}
+            onChange={e => setViewMonth(Number(e.target.value))}
+            className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-1.5 py-0.5 cursor-pointer"
+          >
+            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          <select
+            value={viewYear}
+            onChange={e => setViewYear(Number(e.target.value))}
+            className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-1.5 py-0.5 cursor-pointer w-[72px]"
+          >
+            {Array.from({ length: 12 }, (_, i) => today.getFullYear() - 6 + i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        <button type="button" onClick={nextMonth}
+          className="w-8 h-8 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center text-lg font-bold">
+          ›
+        </button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS.map(d => (
+          <div key={d} className="text-center text-[11px] text-gray-500 font-semibold py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 gap-px">
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} className="h-8" />
+          const isSelected = selParts
+            ? day === selParts.day && viewMonth === selParts.month && viewYear === selParts.year
+            : false
+          const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => selectDay(day)}
+              className={[
+                'h-8 w-full rounded-md text-sm font-medium transition-colors',
+                isSelected              ? 'bg-[#FF6B00] text-white'              : '',
+                isToday && !isSelected  ? 'border border-[#00BCD4] text-[#00BCD4]' : '',
+                !isSelected && !isToday ? 'text-gray-300 hover:bg-[#2a2a4a]'     : '',
+              ].join(' ')}
+            >
+              {day}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Quick links */}
+      <div className="flex justify-between mt-3 pt-2 border-t border-[#2a2a4a]">
+        <button type="button" onClick={goToday} className="text-xs text-[#00BCD4] hover:underline">Today</button>
+        <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="text-xs text-red-400 hover:underline">Clear</button>
+      </div>
+    </div>
+  )
+
   return (
-    <div ref={ref} className="space-y-1 relative">
+    <div className="space-y-1">
       <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">{label}</Label>
       <div className="flex gap-1 items-center">
         <button
+          ref={btnRef}
           type="button"
           onClick={() => setOpen(o => !o)}
-          className="flex-1 h-9 flex items-center justify-between px-3 rounded-md border border-[#3a3a5a] bg-[#2a2a4a] text-sm text-white hover:border-[#00BCD4] transition-colors"
+          className="flex-1 h-9 flex items-center justify-between px-3 rounded-md border border-[#3a3a5a] bg-[#2a2a4a] text-sm hover:border-[#00BCD4] transition-colors"
         >
           <span className={value ? 'text-white' : 'text-gray-500'}>{displayValue}</span>
           <Calendar className="h-4 w-4 text-[#00BCD4] shrink-0 ml-2" />
         </button>
-        <button type="button" title="Clear date" onClick={() => onChange('')}
-          className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+        <button
+          type="button"
+          title="Clear date"
+          onClick={() => onChange('')}
+          className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
+        >
           <Minus className="h-3.5 w-3.5" />
         </button>
       </div>
-
-      {open && (
-        <div className="absolute z-[100] top-full left-0 mt-1 w-72 bg-[#1a1a2e] border border-[#3a3a5a] rounded-xl shadow-2xl p-3">
-          {/* Month/year navigation */}
-          <div className="flex items-center justify-between mb-3">
-            <button type="button" onClick={prevMonth}
-              className="w-7 h-7 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center">
-              <ChevronDown className="h-4 w-4 rotate-90" />
-            </button>
-            <div className="flex items-center gap-2">
-              <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))}
-                className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-2 py-0.5 cursor-pointer">
-                {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-              </select>
-              <select value={viewYear} onChange={e => setViewYear(Number(e.target.value))}
-                className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-2 py-0.5 cursor-pointer w-20">
-                {Array.from({ length: 10 }, (_, i) => today.getFullYear() - 3 + i).map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-            <button type="button" onClick={nextMonth}
-              className="w-7 h-7 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center">
-              <ChevronDown className="h-4 w-4 -rotate-90" />
-            </button>
-          </div>
-
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 mb-1">
-            {DAYS.map(d => (
-              <div key={d} className="text-center text-[10px] text-gray-500 font-semibold py-1">{d}</div>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-0.5">
-            {cells.map((day, i) => {
-              if (!day) return <div key={i} />
-              const isSelected = day === selectedDay && viewMonth === selectedMonth && viewYear === selectedYear
-              const isToday    = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => selectDay(day)}
-                  className={`h-8 w-full rounded-md text-sm font-medium transition-colors
-                    ${isSelected ? 'bg-[#FF6B00] text-white' : ''}
-                    ${isToday && !isSelected ? 'border border-[#00BCD4] text-[#00BCD4]' : ''}
-                    ${!isSelected && !isToday ? 'text-gray-300 hover:bg-[#2a2a4a]' : ''}
-                  `}
-                >
-                  {day}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Quick: Today / Clear */}
-          <div className="flex justify-between mt-3 pt-2 border-t border-[#2a2a4a]">
-            <button type="button" onClick={() => {
-              const d = new Date()
-              onChange(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
-              setOpen(false)
-            }} className="text-xs text-[#00BCD4] hover:underline">Today</button>
-            <button type="button" onClick={() => { onChange(''); setOpen(false) }}
-              className="text-xs text-red-400 hover:underline">Clear</button>
-          </div>
-        </div>
-      )}
+      {mounted && open && createPortal(popup, document.body)}
     </div>
   )
 }
