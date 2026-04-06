@@ -113,7 +113,8 @@ export default function InvoicePreviewPage() {
         scopeTemplate: '',
         isServiceContract: parsedNotes.is_service_contract || false,
         recurringSchedule: parsedNotes.recurring_schedule || 'one-time',
-        validUntil: '',
+        issuedDate: data.issued_date ? data.issued_date.split('T')[0] : '',
+        dueDate: data.due_date ? data.due_date.split('T')[0] : '',
         status: data.status || 'draft',
         items: normalizedItems,
         selectedClientId: data.clients?.company_name || '',
@@ -144,6 +145,8 @@ export default function InvoicePreviewPage() {
       subtotal,
       total: subtotal,
       balance_due: subtotal - (Number(invoice.total) - Number(invoice.balance_due)),
+      issued_date: values.issuedDate || invoice.issued_date,
+      due_date: values.dueDate || invoice.due_date,
       notes: JSON.stringify({
         contact_person: values.contactPerson,
         service_location: values.serviceLocation,
@@ -262,11 +265,14 @@ export default function InvoicePreviewPage() {
 
   const invoiceData = {
     invoice_number: invoice.invoice_number,
-    date: new Date(invoice.issued_date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    date: new Date((editFormValues?.issuedDate || invoice.issued_date) + 'T00:00:00').toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
     }),
+    due_date: editFormValues?.dueDate
+      ? new Date(editFormValues.dueDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      : invoice.due_date
+        ? new Date(invoice.due_date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        : '',
     payment_terms: editFormValues?.paymentTerms || 'COD',
     payment_method: editFormValues?.paymentMethod || '',
     service_description: serviceDescription,

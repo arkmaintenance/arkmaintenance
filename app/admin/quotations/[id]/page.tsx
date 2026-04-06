@@ -110,6 +110,8 @@ export default function QuotationPreviewPage() {
         isServiceContract: parsedNotes.is_service_contract || false,
         recurringSchedule: parsedNotes.recurring_schedule || 'one-time',
         validUntil: data.valid_until ? data.valid_until.split('T')[0] : '',
+        issuedDate: data.created_at ? data.created_at.split('T')[0] : '',
+        dueDate: '',
         status: data.status || 'pending',
         items: normalizedItems,
         selectedClientId: data.clients?.company_name || '',
@@ -236,7 +238,7 @@ export default function QuotationPreviewPage() {
 
   const quotationData = {
     quote_number: quotation.quote_number,
-    date: new Date(quotation.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    date: new Date((activeValues?.issuedDate || quotation.created_at.split('T')[0]) + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     payment_terms: activeValues?.paymentTerms || 'COD',
     service_description: activeValues?.title || quotation.title || 'SERVICE QUOTATION',
     timeline: activeValues?.timeline || quotation.description || '3-5 Days',
