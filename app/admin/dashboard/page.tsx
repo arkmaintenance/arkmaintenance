@@ -11,35 +11,41 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const YEAR = 2026
-  const yearStart = `${YEAR}-01-01`
-  const yearEnd   = `${YEAR}-12-31`
+  // Rolling 12-month window for chart (so Dec 2025 invoices appear)
+  const now = new Date()
+  const twelveMonthsAgo = new Date(now)
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
+  twelveMonthsAgo.setDate(1)
+  const chartStart = twelveMonthsAgo.toISOString().split('T')[0]
 
-  // Fetch all 2026 invoices for stats + charts + recent list
-  const { data: yearInvoices } = await supabase
+  // Fetch ALL invoices for lifetime stats, but only last-12-months for chart
+  const { data: allInvoices } = await supabase
     .from('invoices')
     .select('*, clients(contact_name, company_name)')
-    .gte('issued_date', yearStart)
-    .lte('issued_date', yearEnd)
     .order('issued_date', { ascending: false })
 
-  // Counts scoped to 2026
-  const invoiceCount = yearInvoices?.length || 0
-  const totalRevenue = yearInvoices?.reduce((s, i) => s + Number(i.total || 0), 0) || 0
-  const pendingAmount = yearInvoices
+  const { data: chartInvoices } = await supabase
+    .from('invoices')
+    .select('issued_date, total, created_at')
+    .gte('issued_date', chartStart)
+    .order('issued_date', { ascending: false })
+
+  // All-time stats
+  const yearInvoices = allInvoices  // keep variable name for components below
+  const invoiceCount = allInvoices?.length || 0
+  const totalRevenue = allInvoices?.reduce((s, i) => s + Number(i.total || 0), 0) || 0
+  const pendingAmount = allInvoices
     ?.filter(i => ['pending', 'sent', 'overdue', 'draft'].includes(i.status))
     .reduce((s, i) => s + Number(i.balance_due || 0), 0) || 0
-  const overdueInvoices = yearInvoices?.filter(i => i.status === 'overdue').length || 0
-  const overdueBalanceTotal = yearInvoices
+  const overdueInvoices = allInvoices?.filter(i => i.status === 'overdue').length || 0
+  const overdueBalanceTotal = allInvoices
     ?.filter(i => i.status === 'overdue')
     .reduce((s, i) => s + Number(i.balance_due || 0), 0) || 0
 
-  // Expenses scoped to 2026
+  // All-time expenses
   const { data: yearExpenses } = await supabase
     .from('expenses')
     .select('amount, date, created_at')
-    .gte('date', yearStart)
-    .lte('date', yearEnd)
   const totalExpenses = yearExpenses?.reduce((s, e) => s + Number(e.amount || 0), 0) || 0
 
   // Global counts (clients, jobs, technicians are not year-scoped)
@@ -84,16 +90,27 @@ export default async function DashboardPage() {
     activeJobs: activeJobs || 0,
   }
 
-  // Monthly chart — 2026 invoices by issued_date + 2026 expenses
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const monthlyData = MONTHS.map((month, index) => {
-    const rev = (yearInvoices || [])
-      .filter(i => new Date(i.issued_date || i.created_at).getMonth() === index)
-      .reduce((s, i) => s + Number(i.total || 0), 0)
+  // Rolling 12-month chart — labelled by actual calendar month
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthlyData = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(twelveMonthsAgo)
+    d.setMonth(d.getMonth() + i)
+    const y = d.getFullYear()
+    const m = d.getMonth()
+    const label = `${MONTH_NAMES[m]} ${y !== now.getFullYear() ? y : ''}`
+    const rev = (chartInvoices || [])
+      .filter(inv => {
+        const dt = new Date(inv.issued_date || inv.created_at)
+        return dt.getFullYear() === y && dt.getMonth() === m
+      })
+      .reduce((s, inv) => s + Number(inv.total || 0), 0)
     const exp = (yearExpenses || [])
-      .filter(e => new Date(e.date || e.created_at).getMonth() === index)
+      .filter(e => {
+        const dt = new Date(e.date || e.created_at)
+        return dt.getFullYear() === y && dt.getMonth() === m
+      })
       .reduce((s, e) => s + Number(e.amount || 0), 0)
-    return { month, revenue: rev, expenses: exp }
+    return { month: label.trim(), revenue: rev, expenses: exp }
   })
 
   return (
@@ -106,7 +123,7 @@ export default async function DashboardPage() {
               Welcome back, {user?.user_metadata?.first_name || 'Admin'}!
             </h2>
             <p className="text-muted-foreground">
-              {"Here's what's happening with your business today. (2026 figures)"}
+              {"Here's what's happening with your business. (All-time figures, chart shows last 12 months)"}
             </p>
           </div>
         </div>
