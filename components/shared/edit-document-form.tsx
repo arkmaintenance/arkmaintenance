@@ -112,8 +112,9 @@ const Combobox = forwardRef<HTMLInputElement, {
     if (open && containerRef.current) {
       const r = containerRef.current.getBoundingClientRect()
       setPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width })
+      console.log('[v0] Combobox opened, options count:', options.length, 'filtered:', filtered.length, 'pos:', r.bottom, r.left)
     }
-  }, [open])
+  }, [open, options.length])
 
   const filtered = query.trim() === ''
     ? options
@@ -151,7 +152,12 @@ const Combobox = forwardRef<HTMLInputElement, {
         />
         <button
           type="button"
-          onClick={() => { setOpen(o => !o); inputRef.current?.focus() }}
+          onClick={() => {
+            // When clicking the chevron to open, clear the query to show all options
+            if (!open) setQuery('')
+            setOpen(o => !o)
+            inputRef.current?.focus()
+          }}
           className="px-2 bg-[#2a2a4a] border border-[#3a3a5a] border-l-0 rounded-r-md text-gray-400 hover:text-white"
         >
           <ChevronDown className="h-3 w-3" />
@@ -485,13 +491,16 @@ export function EditDocumentForm({
   useEffect(() => {
     async function loadOptions() {
       // Load all clients
-      const { data: clientData } = await supabase
+      const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('id, contact_name, company_name, address, city, parish, email, trn')
         .order('company_name')
+      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
-        setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean))])
+        const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean))]
+        console.log('[v0] Company names:', compNames)
+        setCompanyNames(compNames)
         // Pre-filter contact names by already-selected company if one is set
         const preSelectedCompany = initialValues.selectedClientId
         const relevantClients = preSelectedCompany
@@ -525,17 +534,24 @@ export function EditDocumentForm({
       setLineDescriptions([...new Set(allDescs)])
 
       // Load services catalogue — names become the primary dropdown options
-      const { data: svcData } = await supabase
+      const { data: svcData, error: svcError } = await supabase
         .from('services')
         .select('name, description, base_price')
         .eq('status', 'active')
         .order('category')
         .order('name')
+      console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
+      console.log('[v0] Services data:', svcData)
       if (svcData && svcData.length > 0) {
         setServiceOptions(svcData.map(s => ({ name: s.name, description: s.description || '', base_price: Number(s.base_price) })))
         // Prepend service names to the description dropdown (service names first, then historical)
         const svcNames = svcData.map(s => s.name)
-        setLineDescriptions(prev => [...new Set([...svcNames, ...prev])])
+        console.log('[v0] Service names for dropdown:', svcNames)
+        setLineDescriptions(prev => {
+          const combined = [...new Set([...svcNames, ...prev])]
+          console.log('[v0] Combined lineDescriptions:', combined.length, combined.slice(0, 5))
+          return combined
+        })
       }
     }
     loadOptions()
