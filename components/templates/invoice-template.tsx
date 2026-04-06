@@ -51,13 +51,24 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
       cheque: 'Cheque',
       credit_card: 'Credit Card',
     }
-    const bankingDetails = [
-      { label: 'Branch', value: 'Ocho Rios' },
-      { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
-      { label: 'Branch Code', value: '99094' },
-      { label: 'Account Number', value: '99094 0006 439' },
-      { label: 'Account Type', value: 'Savings' },
-    ]
+    // British High Commission gets DIFFERENT banking details (First Global Bank)
+    const isBHC = data.client.company?.toLowerCase().includes('british high commission')
+    const bankingDetails = isBHC
+      ? [
+          { label: 'Account Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd' },
+          { label: 'Account Number', value: '9909 4000 6439 (Savings)' },
+          { label: 'Name of Bank', value: 'First Global Bank' },
+          { label: 'Address of Bank', value: '28-48 Barbados Avenue, Kingston 5' },
+          { label: 'Sort Code', value: '99094' },
+          { label: 'Swift', value: 'FILBJMKN' },
+        ]
+      : [
+          { label: 'Branch', value: 'Ocho Rios' },
+          { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
+          { label: 'Branch Code', value: '99094' },
+          { label: 'Account Number', value: '99094 0006 439' },
+          { label: 'Account Type', value: 'Savings' },
+        ]
 
     return (
       <div
