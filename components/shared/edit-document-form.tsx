@@ -434,7 +434,7 @@ export function EditDocumentForm({
   const [companyNames, setCompanyNames] = useState<string[]>([])
   const [lineDescriptions, setLineDescriptions] = useState<string[]>([])
 
-  // ── Form state ──────────────────────────────────────────────────────────────
+  // ── Form state ──────────────────────────────────��───────────────────────────
   const [title, setTitle] = useState(initialValues.title)
   const [contactPerson, setContactPerson] = useState(initialValues.contactPerson)
   const [serviceLocation, setServiceLocation] = useState(initialValues.serviceLocation)
@@ -563,8 +563,8 @@ export function EditDocumentForm({
         <span className="bg-[#00BCD4] text-white font-bold text-sm px-3 py-1 rounded-full tracking-wide">{docNumber}</span>
       </div>
 
-      {/* ── Row 1: Doc # + Issued Date + Due Date + Client selector ── */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* ── Row 1: Doc # + Issued Date + Client selector ── */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1">
           <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
             {docType === 'quotation' ? 'Quotation' : 'Invoice'} #
@@ -577,11 +577,6 @@ export function EditDocumentForm({
           label={docType === 'quotation' ? 'Quote Date' : 'Issued Date'}
           value={issuedDate}
           onChange={setIssuedDate}
-        />
-        <DatePickerField
-          label={docType === 'quotation' ? 'Valid Until' : 'Due Date'}
-          value={docType === 'quotation' ? validUntil : dueDate}
-          onChange={docType === 'quotation' ? setValidUntil : setDueDate}
         />
         <div className="space-y-1">
           <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
