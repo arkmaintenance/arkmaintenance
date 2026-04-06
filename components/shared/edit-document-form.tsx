@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Minus, Trash2, Save, X, ChevronDown, Layers } from 'lucide-react'
+import { Plus, Minus, Trash2, Save, X, ChevronDown, Layers, Calendar } from 'lucide-react'
 
 // ─── Types (v2) ───────────────────────────────────────────────────────────────
 
@@ -47,6 +47,8 @@ export interface EditFormValues {
   scopeOfWork: string
   scopeTemplate: string       // which checklist template key
   validUntil: string
+  issuedDate: string          // YYYY-MM-DD
+  dueDate: string             // YYYY-MM-DD
   status: string
   notes: string
   items: DocItem[]
@@ -205,6 +207,162 @@ function ClearableField({
   )
 }
 
+// ─── DatePickerField ──────────────────────────────────────────────────────────
+
+function DatePickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string   // YYYY-MM-DD
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Parse current value into year/month/day
+  const today = new Date()
+  const parsed = value ? new Date(value + 'T00:00:00') : today
+  const [viewYear, setViewYear] = useState(parsed.getFullYear())
+  const [viewMonth, setViewMonth] = useState(parsed.getMonth())
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
+
+  // Build calendar grid
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay()
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+  // pad to full rows
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const selectedDay   = value ? new Date(value + 'T00:00:00').getDate()     : null
+  const selectedMonth = value ? new Date(value + 'T00:00:00').getMonth()    : null
+  const selectedYear  = value ? new Date(value + 'T00:00:00').getFullYear() : null
+
+  const selectDay = (day: number) => {
+    const mm = String(viewMonth + 1).padStart(2, '0')
+    const dd = String(day).padStart(2, '0')
+    onChange(`${viewYear}-${mm}-${dd}`)
+    setOpen(false)
+  }
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+
+  const displayValue = value
+    ? new Date(value + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : 'Pick a date'
+
+  return (
+    <div ref={ref} className="space-y-1 relative">
+      <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">{label}</Label>
+      <div className="flex gap-1 items-center">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="flex-1 h-9 flex items-center justify-between px-3 rounded-md border border-[#3a3a5a] bg-[#2a2a4a] text-sm text-white hover:border-[#00BCD4] transition-colors"
+        >
+          <span className={value ? 'text-white' : 'text-gray-500'}>{displayValue}</span>
+          <Calendar className="h-4 w-4 text-[#00BCD4] shrink-0 ml-2" />
+        </button>
+        <button type="button" title="Clear date" onClick={() => onChange('')}
+          className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {open && (
+        <div className="absolute z-[100] top-full left-0 mt-1 w-72 bg-[#1a1a2e] border border-[#3a3a5a] rounded-xl shadow-2xl p-3">
+          {/* Month/year navigation */}
+          <div className="flex items-center justify-between mb-3">
+            <button type="button" onClick={prevMonth}
+              className="w-7 h-7 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center">
+              <ChevronDown className="h-4 w-4 rotate-90" />
+            </button>
+            <div className="flex items-center gap-2">
+              <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))}
+                className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-2 py-0.5 cursor-pointer">
+                {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+              <select value={viewYear} onChange={e => setViewYear(Number(e.target.value))}
+                className="bg-[#2a2a4a] border border-[#3a3a5a] text-white text-sm rounded-md px-2 py-0.5 cursor-pointer w-20">
+                {Array.from({ length: 10 }, (_, i) => today.getFullYear() - 3 + i).map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <button type="button" onClick={nextMonth}
+              className="w-7 h-7 rounded-md bg-[#2a2a4a] text-gray-300 hover:bg-[#3a3a5a] flex items-center justify-center">
+              <ChevronDown className="h-4 w-4 -rotate-90" />
+            </button>
+          </div>
+
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAYS.map(d => (
+              <div key={d} className="text-center text-[10px] text-gray-500 font-semibold py-1">{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((day, i) => {
+              if (!day) return <div key={i} />
+              const isSelected = day === selectedDay && viewMonth === selectedMonth && viewYear === selectedYear
+              const isToday    = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => selectDay(day)}
+                  className={`h-8 w-full rounded-md text-sm font-medium transition-colors
+                    ${isSelected ? 'bg-[#FF6B00] text-white' : ''}
+                    ${isToday && !isSelected ? 'border border-[#00BCD4] text-[#00BCD4]' : ''}
+                    ${!isSelected && !isToday ? 'text-gray-300 hover:bg-[#2a2a4a]' : ''}
+                  `}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Quick: Today / Clear */}
+          <div className="flex justify-between mt-3 pt-2 border-t border-[#2a2a4a]">
+            <button type="button" onClick={() => {
+              const d = new Date()
+              onChange(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
+              setOpen(false)
+            }} className="text-xs text-[#00BCD4] hover:underline">Today</button>
+            <button type="button" onClick={() => { onChange(''); setOpen(false) }}
+              className="text-xs text-red-400 hover:underline">Clear</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function EditDocumentForm({
@@ -241,6 +399,8 @@ export function EditDocumentForm({
   const [scopeOfWork, setScopeOfWork] = useState(initialValues.scopeOfWork)
   const [scopeTemplate, setScopeTemplate] = useState(initialValues.scopeTemplate || '')
   const [validUntil, setValidUntil] = useState(initialValues.validUntil)
+  const [issuedDate, setIssuedDate] = useState(initialValues.issuedDate || '')
+  const [dueDate, setDueDate]       = useState(initialValues.dueDate || '')
   const [status, setStatus] = useState(initialValues.status)
   const [notes, setNotes] = useState(initialValues.notes)
   const [items, setItems] = useState<DocItem[]>(initialValues.items)
@@ -339,7 +499,7 @@ export function EditDocumentForm({
   const currentValues: EditFormValues = {
     title, contactPerson, serviceLocation, address, paymentTerms, paymentMethod,
     poNumber, trn, timeline, isServiceContract, recurringSchedule,
-    scopeOfWork, scopeTemplate, validUntil, status, notes, items, selectedClientId,
+    scopeOfWork, scopeTemplate, validUntil, issuedDate, dueDate, status, notes, items, selectedClientId,
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -353,8 +513,8 @@ export function EditDocumentForm({
         <span className="bg-[#00BCD4] text-white font-bold text-sm px-3 py-1 rounded-full tracking-wide">{docNumber}</span>
       </div>
 
-      {/* ── Row 1: Doc # + Date + Client selector ── */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* ── Row 1: Doc # + Issued Date + Due Date + Client selector ── */}
+      <div className="grid grid-cols-4 gap-4">
         <div className="space-y-1">
           <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
             {docType === 'quotation' ? 'Quotation' : 'Invoice'} #
@@ -363,12 +523,16 @@ export function EditDocumentForm({
             {docNumber}
           </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Date</Label>
-          <div className="h-9 flex items-center px-3 rounded-md border border-[#3a3a5a] bg-[#2a2a4a] text-gray-300 text-sm">
-            {docDate}
-          </div>
-        </div>
+        <DatePickerField
+          label={docType === 'quotation' ? 'Quote Date' : 'Issued Date'}
+          value={issuedDate}
+          onChange={setIssuedDate}
+        />
+        <DatePickerField
+          label={docType === 'quotation' ? 'Valid Until' : 'Due Date'}
+          value={docType === 'quotation' ? validUntil : dueDate}
+          onChange={docType === 'quotation' ? setValidUntil : setDueDate}
+        />
         <div className="space-y-1">
           <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
           <div className="flex gap-1 items-center">
@@ -676,25 +840,8 @@ export function EditDocumentForm({
         </div>
       )}
 
-      {/* ── Valid Until + Status ── */}
+      {/* ── Status ── */}
       <div className="grid grid-cols-2 gap-4">
-        {docType === 'quotation' && (
-          <div className="space-y-1">
-            <Label className="text-gray-300 text-sm font-medium">Valid Until</Label>
-            <div className="flex gap-1 items-center">
-              <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)}
-                className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
-              <button type="button" title="Set date" onClick={() => {}}
-                className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <button type="button" title="Clear date" onClick={() => setValidUntil('')}
-                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                <Minus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
         <div className="space-y-1">
           <Label className="text-gray-300 text-sm font-medium">Status</Label>
           <div className="flex gap-1 items-center">
