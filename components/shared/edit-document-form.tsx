@@ -433,8 +433,9 @@ export function EditDocumentForm({
   const [contactNames, setContactNames] = useState<string[]>([])
   const [companyNames, setCompanyNames] = useState<string[]>([])
   const [lineDescriptions, setLineDescriptions] = useState<string[]>([])
+  const [serviceOptions, setServiceOptions] = useState<{ name: string; description: string; base_price: number }[]>([])
 
-  // ── Form state ──────────────────────────────────��───────────────────────────
+  // ── Form state ──────────────────────────────────���───────────────────────────
   const [title, setTitle] = useState(initialValues.title)
   const [contactPerson, setContactPerson] = useState(initialValues.contactPerson)
   const [serviceLocation, setServiceLocation] = useState(initialValues.serviceLocation)
@@ -498,6 +499,20 @@ export function EditDocumentForm({
         } catch {}
       }
       setLineDescriptions([...new Set(allDescs)])
+
+      // Load services catalogue — names become the primary dropdown options
+      const { data: svcData } = await supabase
+        .from('services')
+        .select('name, description, base_price')
+        .eq('status', 'active')
+        .order('category')
+        .order('name')
+      if (svcData && svcData.length > 0) {
+        setServiceOptions(svcData.map(s => ({ name: s.name, description: s.description || '', base_price: Number(s.base_price) })))
+        // Prepend service names to the description dropdown (service names first, then historical)
+        const svcNames = svcData.map(s => s.name)
+        setLineDescriptions(prev => [...new Set([...svcNames, ...prev])])
+      }
     }
     loadOptions()
   }, [])
@@ -536,6 +551,16 @@ export function EditDocumentForm({
         ;(item as any)[field] = value
         next[index] = item
       }
+      return next
+    })
+  }
+
+  // Patch multiple fields atomically (avoids stale-closure when setting description + price together)
+  const updateItemFields = (index: number, patches: Partial<DocItem>) => {
+    setItems(prev => {
+      const next = [...prev]
+      const item = { ...next[index], ...patches }
+      next[index] = recalc(item)
       return next
     })
   }
@@ -703,9 +728,16 @@ export function EditDocumentForm({
                     {/* Description combobox */}
                     <td className="px-3 py-2">
                       <Combobox value={item.description}
-                        onChange={v => updateItem(index, 'description', v)}
+                        onChange={v => {
+                          const match = serviceOptions.find(s => s.name === v)
+                          if (match && match.base_price > 0) {
+                            updateItemFields(index, { description: v, unit_price: match.base_price })
+                          } else {
+                            updateItem(index, 'description', v)
+                          }
+                        }}
                         options={lineDescriptions}
-                        placeholder="Type or select description..." />
+                        placeholder="Type or select service..." />
                     </td>
                     {/* Qty with − / + */}
                     <td className="px-2 py-2">
