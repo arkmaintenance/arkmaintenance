@@ -443,7 +443,7 @@ function DatePickerField({
   )
 }
 
-// ─��─ Main Component ───────────────────────────────────���───────────────────────
+// ─��─ Main Component ───────────────────────────────────�����───────────────────────
 
 export function EditDocumentForm({
   docType,
@@ -495,9 +495,11 @@ export function EditDocumentForm({
         .from('clients')
         .select('id, contact_name, company_name, address, city, parish, email, trn')
         .order('company_name')
+      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
         const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean))]
+        console.log('[v0] Company names:', compNames.length, compNames.slice(0, 5))
         setCompanyNames(compNames)
         // Pre-filter contact names by already-selected company if one is set
         const preSelectedCompany = initialValues.selectedClientId

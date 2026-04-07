@@ -373,10 +373,8 @@ export default function InvoicePreviewPage() {
 
 
       {/* Invoice Template Preview */}
-      <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
-        <div className="min-w-[794px]">
-          <InvoiceTemplate ref={templateRef} data={invoiceData} />
-        </div>
+      <div className="bg-white rounded-lg shadow-lg">
+        <InvoiceTemplate ref={templateRef} data={invoiceData} />
       </div>
 
       {/* Send Invoice Dialog */}
