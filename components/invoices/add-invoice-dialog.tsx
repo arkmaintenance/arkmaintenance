@@ -58,7 +58,8 @@ const Combobox = forwardRef<HTMLInputElement, {
 
   const filtered = query.trim() === '' ? options : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
 
-  const dropdown = filtered.length > 0 && (
+  // Show "No options" message if dropdown is open but empty
+  const dropdown = open && (filtered.length > 0 ? (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
       className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
@@ -70,7 +71,13 @@ const Combobox = forwardRef<HTMLInputElement, {
         </button>
       ))}
     </div>
-  )
+  ) : (
+    <div ref={dropRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
+      {options.length === 0 ? 'Loading...' : 'No matches found'}
+    </div>
+  ))
 
   return (
     <div ref={containerRef} className="relative flex-1">
@@ -235,7 +242,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
           <Plus className="mr-2 h-4 w-4" /> New Invoice
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white text-xl">New Invoice</DialogTitle>
         </DialogHeader>
