@@ -59,7 +59,7 @@ const Combobox = forwardRef<HTMLInputElement, {
 
   const filtered = query.trim() === '' ? options : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
 
-  const dropdown = filtered.length > 0 && (
+  const dropdown = open && (filtered.length > 0 ? (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
       className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
@@ -71,7 +71,13 @@ const Combobox = forwardRef<HTMLInputElement, {
         </button>
       ))}
     </div>
-  )
+  ) : (
+    <div ref={dropRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
+      {options.length === 0 ? 'Loading...' : 'No matches found'}
+    </div>
+  ))
 
   return (
     <div ref={containerRef} className="relative flex-1">
@@ -146,8 +152,10 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
   // Load clients + services from DB when dialog opens
   useEffect(() => {
     if (!open) return
+    console.log('[v0] AddJobDialog opened, loading data...')
     async function load() {
-      const { data: clientData } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
         setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])])
@@ -258,7 +266,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
           <Plus className="mr-2 h-4 w-4" /> New Job
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#13172a] border-[#2d3352] max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="bg-[#13172a] border-[#2d3352] max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
         {/* Gradient header */}
         <div className="bg-gradient-to-r from-[#1a3a5c] via-[#2a1a5c] to-[#5c1a1a] px-6 py-4 rounded-t-lg">
           <DialogHeader>
