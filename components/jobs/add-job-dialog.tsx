@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useRef, forwardRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -8,50 +9,119 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Plus, Loader2, Trash2 } from 'lucide-react'
+import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
 
-interface Client {
-  id: string
-  contact_name: string
-  company_name: string | null
-}
+// ─── Inline Combobox (portal-based) ──────────────────────────────────────────
 
-interface Technician {
-  id: string
-  name: string
-}
+const Combobox = forwardRef<HTMLInputElement, {
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+}>(function Combobox({ value, onChange, options, placeholder }, fwdRef) {
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [query, setQuery] = useState(value)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
 
-interface LineItem {
-  id: string
-  description: string
-  quantity: number
-  unit_price: number
-}
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { setQuery(value) }, [value])
 
-interface AddJobDialogProps {
-  clients: Client[]
-  technicians: Technician[]
-}
+  useEffect(() => {
+    if (!forwardRef) return
+    if (typeof fwdRef === 'function') fwdRef(inputRef.current)
+    else if (fwdRef) fwdRef.current = inputRef.current
+  })
 
-export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node) &&
+          containerRef.current && !containerRef.current.contains(e.target as Node))
+        setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const r = containerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width })
+    }
+  }, [open, options.length])
+
+  const filtered = query.trim() === '' ? options : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+
+  const dropdown = filtered.length > 0 && (
+    <div ref={dropRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
+      {filtered.map((opt, i) => (
+        <button key={i} type="button"
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
+          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+
+  return (
+    <div ref={containerRef} className="relative flex-1">
+      <div className="flex">
+        <Input ref={inputRef} value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="bg-[#1e2235] border-[#2d3352] text-white rounded-r-none border-r-0 flex-1 placeholder:text-gray-500" />
+        <button type="button"
+          onClick={() => { if (!open) setQuery(''); setOpen(o => !o); inputRef.current?.focus() }}
+          className="px-2 bg-[#1e2235] border border-[#2d3352] border-l-0 rounded-r-md text-gray-400 hover:text-white">
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+      {mounted && open && createPortal(dropdown, document.body)}
+    </div>
+  )
+})
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Client { id: string; contact_name: string; company_name: string | null; address?: string; city?: string; parish?: string }
+interface Technician { id: string; name: string }
+interface ServiceOption { name: string; base_price: number }
+interface LineItem { id: string; description: string; quantity: number; unit_price: number }
+interface AddJobDialogProps { clients: Client[]; technicians: Technician[] }
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function AddJobDialog({ clients: initialClients, technicians: initialTechnicians }: AddJobDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [selectedClient, setSelectedClient] = useState('')
+  const router = useRouter()
+  const supabase = createClient()
+
+  // DB-loaded options
+  const [clients, setClients] = useState<Client[]>(initialClients)
+  const [technicians, setTechnicians] = useState<Technician[]>(initialTechnicians)
+  const [companyNames, setCompanyNames] = useState<string[]>([])
+  const [contactNames, setContactNames] = useState<string[]>([])
+  const [addresses, setAddresses] = useState<string[]>([])
+  const [technicianNames, setTechnicianNames] = useState<string[]>([])
+  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
+  const [serviceNames, setServiceNames] = useState<string[]>([])
+  const [jobTitles, setJobTitles] = useState<string[]>([])
+  const [locations] = useState(['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville'])
+
+  // Form state
+  const [selectedCompany, setSelectedCompany] = useState('')
   const [selectedTechnician, setSelectedTechnician] = useState('')
   const [contactPerson, setContactPerson] = useState('')
   const [clientAddress, setClientAddress] = useState('')
@@ -73,20 +143,65 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
   ])
   const [specialNotes, setSpecialNotes] = useState('')
 
-  const router = useRouter()
-  const supabase = createClient()
+  // Load clients + services from DB when dialog opens
+  useEffect(() => {
+    if (!open) return
+    async function load() {
+      const { data: clientData } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+      if (clientData) {
+        setClients(clientData)
+        setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])])
+        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
+        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+      }
+      const { data: techData } = await supabase.from('technicians').select('id, name').order('name')
+      if (techData) {
+        setTechnicians(techData)
+        setTechnicianNames(techData.map(t => t.name))
+      }
+      const { data: svcData } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+      if (svcData) {
+        setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
+        setServiceNames(svcData.map(s => s.name))
+      }
+      const { data: jobData } = await supabase.from('jobs').select('title').not('title', 'is', null)
+      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
+      const titles = [...new Set([...(jobData || []).map((r: any) => r.title), ...(invData || []).map((r: any) => r.title)].filter(Boolean))]
+      setJobTitles(titles)
+    }
+    load()
+  }, [open])
+
+  // Auto-fill contact/address when company is selected
+  const handleCompanySelect = (company: string) => {
+    setSelectedCompany(company)
+    const match = clients.find(c => c.company_name === company)
+    if (match) {
+      if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
+      const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
+      if (addr) setClientAddress(addr)
+      setContactNames(clients.filter(c => c.company_name === company).map(c => c.contact_name).filter(Boolean))
+    }
+  }
+
+  const handleTechnicianSelect = (name: string) => {
+    setSelectedTechnician(name)
+  }
 
   const total = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
 
-  function addLineItem() {
-    setLineItems(prev => [...prev, { id: Date.now().toString(), description: '', quantity: 1, unit_price: 0 }])
+  const addLineItem = () => setLineItems(prev => [...prev, { id: Date.now().toString(), description: '', quantity: 1, unit_price: 0 }])
+  const removeLineItem = (id: string) => { if (lineItems.length > 1) setLineItems(prev => prev.filter(i => i.id !== id)) }
+  
+  const selectService = (id: string, name: string) => {
+    const svc = serviceOptions.find(s => s.name === name)
+    setLineItems(prev => prev.map(item => {
+      if (item.id !== id) return item
+      return { ...item, description: name, unit_price: svc?.base_price ?? item.unit_price }
+    }))
   }
 
-  function removeLineItem(id: string) {
-    if (lineItems.length > 1) setLineItems(prev => prev.filter(i => i.id !== id))
-  }
-
-  function updateLineItem(id: string, field: keyof LineItem, value: string | number) {
+  const updateLineItem = (id: string, field: keyof LineItem, value: string | number) => {
     setLineItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))
   }
 
@@ -98,6 +213,9 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { toast.error('You must be logged in'); setLoading(false); return }
 
+    const clientRecord = clients.find(c => c.company_name === selectedCompany)
+    const techRecord = technicians.find(t => t.name === selectedTechnician)
+
     const { error } = await supabase.from('jobs').insert({
       user_id: user.id,
       title: jobTitle,
@@ -108,8 +226,8 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
       scheduled_date: scheduledDate || null,
       scheduled_time: scheduledTime || null,
       address: clientAddress || null,
-      client_id: selectedClient || null,
-      technician_id: selectedTechnician || null,
+      client_id: clientRecord?.id || null,
+      technician_id: techRecord?.id || null,
       is_recurring: recurringSchedule !== 'one-time',
       recurring_frequency: recurringSchedule,
       is_service_contract: isServiceContract,
@@ -131,15 +249,13 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
     router.refresh()
   }
 
-  const inputCls = 'bg-[#1e2235] border-[#2d3352] text-white placeholder:text-gray-500 focus-visible:ring-[#00BFFF]/40'
   const labelCls = 'text-gray-400 text-xs uppercase tracking-wide font-medium'
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-[#FF6B00] hover:bg-[#FF6B00]/90 text-white font-semibold">
-          <Plus className="mr-2 h-4 w-4" />
-          New Job
+          <Plus className="mr-2 h-4 w-4" /> New Job
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-[#13172a] border-[#2d3352] max-w-3xl max-h-[90vh] overflow-y-auto p-0">
@@ -154,80 +270,85 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
           {/* Row 1: Job Title */}
           <div className="space-y-1.5">
             <Label className={labelCls}>Job Title *</Label>
-            <Input
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="Type or select job title"
-              className={inputCls}
-              required
-            />
+            <div className="flex gap-1 items-center">
+              <Combobox value={jobTitle} onChange={setJobTitle} options={jobTitles} placeholder="Type or select job title" />
+              <button type="button" onClick={() => setJobTitle('')}
+                className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => setJobTitle('')}
+                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Row 2: Company + Contact Person */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className={labelCls}>Company / Client</Label>
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger className={inputCls}>
-                  <SelectValue placeholder="Select company" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1e2235] border-[#2d3352]">
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id} className="text-white">
-                      {c.company_name || c.contact_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1 items-center">
+                <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
+                <button type="button" onClick={() => setSelectedCompany('')}
+                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setClientAddress('') }}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className={labelCls}>Contact Person</Label>
-              <Input
-                value={contactPerson}
-                onChange={(e) => setContactPerson(e.target.value)}
-                placeholder="Contact person name"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Combobox value={contactPerson} onChange={setContactPerson} options={contactNames} placeholder="Select or type contact..." />
+                <button type="button" onClick={() => setContactPerson('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Row 3: Client Address */}
           <div className="space-y-1.5">
             <Label className={labelCls}>Client Address</Label>
-            <Input
-              value={clientAddress}
-              onChange={(e) => setClientAddress(e.target.value)}
-              placeholder="Service address"
-              className={inputCls}
-            />
+            <div className="flex gap-1 items-center">
+              <Combobox value={clientAddress} onChange={setClientAddress} options={addresses} placeholder="Select or type address..." />
+              <button type="button" onClick={() => setClientAddress('')}
+                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Row 4: Technician + Tech Charge */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className={labelCls}>Technician</Label>
-              <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
-                <SelectTrigger className={inputCls}>
-                  <SelectValue placeholder="Select technician" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1e2235] border-[#2d3352]">
-                  {technicians.map(t => (
-                    <SelectItem key={t.id} value={t.id} className="text-white">{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1 items-center">
+                <Combobox value={selectedTechnician} onChange={handleTechnicianSelect} options={technicianNames} placeholder="Select technician..." />
+                <button type="button" onClick={() => setSelectedTechnician('')}
+                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => setSelectedTechnician('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className={labelCls}>Tech Charge (JMD)</Label>
-              <Input
-                value={techCharge}
-                onChange={(e) => setTechCharge(e.target.value)}
-                placeholder="0.00"
-                type="number"
-                min="0"
-                step="0.01"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Input value={techCharge} onChange={e => setTechCharge(e.target.value)} placeholder="0.00" type="number" min="0" step="0.01"
+                  className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500" />
+                <button type="button" onClick={() => setTechCharge('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -235,21 +356,24 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className={labelCls}>Location</Label>
-              <Input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Service location"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Combobox value={location} onChange={setLocation} options={locations} placeholder="Select location..." />
+                <button type="button" onClick={() => setLocation('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className={labelCls}>Department</Label>
-              <Input
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Department (optional)"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="Department (optional)"
+                  className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500" />
+                <button type="button" onClick={() => setDepartment('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -257,21 +381,25 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className={labelCls}>Supplier</Label>
-              <Input
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                placeholder="Supplier name"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Supplier name"
+                  className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500" />
+                <button type="button" onClick={() => setSupplier('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className={labelCls}>Materials</Label>
-              <Input
-                value={materials}
-                onChange={(e) => setMaterials(e.target.value)}
-                placeholder="Parts / materials used"
-                className={inputCls}
-              />
+              <div className="flex gap-1 items-center">
+                <Input value={materials} onChange={e => setMaterials(e.target.value)} placeholder="Parts / materials used"
+                  className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500" />
+                <button type="button" onClick={() => setMaterials('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -280,7 +408,7 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
             <div className="space-y-1.5">
               <Label className={labelCls}>Job Type</Label>
               <Select value={jobType} onValueChange={setJobType}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-[#1e2235] border-[#2d3352] text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#1e2235] border-[#2d3352]">
                   <SelectItem value="repair" className="text-white">Repair</SelectItem>
                   <SelectItem value="maintenance" className="text-white">Maintenance</SelectItem>
@@ -293,7 +421,7 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
             <div className="space-y-1.5">
               <Label className={labelCls}>Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-[#1e2235] border-[#2d3352] text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#1e2235] border-[#2d3352]">
                   <SelectItem value="low" className="text-white">Low</SelectItem>
                   <SelectItem value="medium" className="text-white">Medium</SelectItem>
@@ -305,7 +433,7 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
             <div className="space-y-1.5">
               <Label className={labelCls}>Status</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-[#1e2235] border-[#2d3352] text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#1e2235] border-[#2d3352]">
                   <SelectItem value="scheduled" className="text-white">Scheduled</SelectItem>
                   <SelectItem value="in-progress" className="text-white">In Progress</SelectItem>
@@ -320,11 +448,13 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className={labelCls}>Scheduled Date</Label>
-              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className={inputCls} />
+              <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+                className="bg-[#1e2235] border-[#2d3352] text-white" />
             </div>
             <div className="space-y-1.5">
               <Label className={labelCls}>Scheduled Time</Label>
-              <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className={inputCls} />
+              <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)}
+                className="bg-[#1e2235] border-[#2d3352] text-white" />
             </div>
           </div>
 
@@ -333,7 +463,7 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
             <div className="space-y-1.5">
               <Label className={labelCls}>Recurring Schedule</Label>
               <Select value={recurringSchedule} onValueChange={setRecurringSchedule}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-[#1e2235] border-[#2d3352] text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#1e2235] border-[#2d3352]">
                   <SelectItem value="one-time" className="text-white">One-time</SelectItem>
                   <SelectItem value="weekly" className="text-white">Weekly</SelectItem>
@@ -346,11 +476,7 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
               </Select>
             </div>
             <div className="flex items-end gap-3 pb-0.5">
-              <Switch
-                checked={isServiceContract}
-                onCheckedChange={setIsServiceContract}
-                className="data-[state=checked]:bg-[#00BFFF]"
-              />
+              <Switch checked={isServiceContract} onCheckedChange={setIsServiceContract} className="data-[state=checked]:bg-[#00BFFF]" />
               <Label className="text-gray-300 text-sm">Service Contract</Label>
             </div>
           </div>
@@ -360,49 +486,24 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
             <div className="flex items-center justify-between">
               <Label className={labelCls}>Service Description / Line Items</Label>
               <Button type="button" variant="ghost" size="sm" onClick={addLineItem} className="text-[#00BFFF] text-xs h-7">
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add Item
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
               </Button>
             </div>
             <div className="border border-[#2d3352] rounded-lg p-3 space-y-2">
               {lineItems.map((item) => (
                 <div key={item.id} className="grid grid-cols-[1fr_80px_100px_36px] gap-2 items-center">
-                  <Input
-                    value={item.description}
-                    onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                    placeholder="Service description"
-                    className={inputCls}
-                  />
-                  <Input
-                    value={item.quantity}
-                    onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                    placeholder="Qty"
-                    type="number"
-                    min="0"
-                    className={inputCls}
-                  />
-                  <Input
-                    value={item.unit_price}
-                    onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                    placeholder="Price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className={inputCls}
-                  />
-                  <Button
-                    type="button" variant="ghost" size="icon"
-                    className="h-8 w-8 text-gray-500 hover:text-red-500"
-                    onClick={() => removeLineItem(item.id)}
-                  >
+                  <Combobox value={item.description} onChange={v => selectService(item.id, v)} options={serviceNames} placeholder="Select or type service..." />
+                  <Input value={item.quantity} onChange={e => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                    placeholder="Qty" type="number" min="0" className="bg-[#1e2235] border-[#2d3352] text-white" />
+                  <Input value={item.unit_price} onChange={e => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                    placeholder="Price" type="number" min="0" step="0.01" className="bg-[#1e2235] border-[#2d3352] text-white" />
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-red-500" onClick={() => removeLineItem(item.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               ))}
               <div className="flex justify-end pt-1 border-t border-[#2d3352]">
-                <span className="text-[#FF6B00] font-semibold text-sm">
-                  Total: JMD {total.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                </span>
+                <span className="text-[#FF6B00] font-semibold text-sm">Total: JMD {total.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
               </div>
             </div>
           </div>
@@ -410,32 +511,15 @@ export function AddJobDialog({ clients, technicians }: AddJobDialogProps) {
           {/* Special Notes */}
           <div className="space-y-1.5">
             <Label className={labelCls}>Special Notes</Label>
-            <Textarea
-              value={specialNotes}
-              onChange={(e) => setSpecialNotes(e.target.value)}
-              placeholder="Any additional notes..."
-              className={`${inputCls} min-h-[72px]`}
-              rows={3}
-            />
+            <Textarea value={specialNotes} onChange={e => setSpecialNotes(e.target.value)} placeholder="Any additional notes..."
+              className="bg-[#1e2235] border-[#2d3352] text-white min-h-[72px] placeholder:text-gray-500" rows={3} />
           </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button" variant="outline"
-              onClick={() => setOpen(false)}
-              className="border-[#2d3352] text-white hover:bg-[#1e2235]"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-gradient-to-r from-[#FF6B00] to-[#FF8C00] hover:from-[#FF6B00]/90 hover:to-[#FF8C00]/90 text-white font-semibold px-8"
-            >
-              {loading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</>
-              ) : 'Create Job'}
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-[#2d3352] text-white hover:bg-[#1e2235]">Cancel</Button>
+            <Button type="submit" disabled={loading} className="bg-gradient-to-r from-[#FF6B00] to-[#FF8C00] hover:from-[#FF6B00]/90 hover:to-[#FF8C00]/90 text-white font-semibold px-8">
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Job'}
             </Button>
           </div>
         </form>
