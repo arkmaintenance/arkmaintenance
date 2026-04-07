@@ -231,7 +231,12 @@ export default function InvoicePreviewPage() {
 
     setDownloadingPdf(true)
     try {
-      await downloadInvoicePdf(invoiceData, `Invoice-${invoice.invoice_number}.pdf`)
+      const dateStr = new Date(invoice.issued_date || (invoice as any).created_at).toISOString().split('T')[0]
+      const clientName = invoice.clients?.company_name || invoice.clients?.contact_name || 'Client'
+      const jobDesc = invoice.title || ''
+      const safeFileName = `${invoice.invoice_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+
+      await downloadInvoicePdf(invoiceData, safeFileName)
       toast.success('Invoice PDF downloaded')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to download invoice PDF')

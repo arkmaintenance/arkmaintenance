@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
@@ -34,8 +34,9 @@ const Combobox = forwardRef<HTMLInputElement, {
   useEffect(() => { setQuery(value) }, [value])
 
   useEffect(() => {
+    if (!fwdRef) return
     if (typeof fwdRef === 'function') fwdRef(inputRef.current)
-    else if (fwdRef) fwdRef.current = inputRef.current
+    else if (fwdRef) (fwdRef as any).current = inputRef.current
   })
 
   useEffect(() => {
@@ -61,11 +62,17 @@ const Combobox = forwardRef<HTMLInputElement, {
   const dropdown = open && (filtered.length > 0 ? (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto pointer-events-auto">
       {filtered.map((opt, i) => (
         <button key={i} type="button"
-          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
-          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}>
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate cursor-pointer"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onChange(opt)
+            setQuery(opt)
+            setOpen(false)
+          }}>
           {opt}
         </button>
       ))}
@@ -74,7 +81,7 @@ const Combobox = forwardRef<HTMLInputElement, {
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
       className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
-      {options.length === 0 ? 'Loading...' : 'No matches found'}
+      {options.length === 0 ? 'Loading records...' : 'No matches found'}
     </div>
   ))
 
@@ -92,7 +99,7 @@ const Combobox = forwardRef<HTMLInputElement, {
           <ChevronDown className="h-3 w-3" />
         </button>
       </div>
-      {mounted && open && createPortal(dropdown, document.body)}
+      {mounted && open && <DialogPortal>{dropdown}</DialogPortal>}
     </div>
   )
 })
@@ -114,8 +121,12 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
 
   // DB-loaded options
   const [clients, setClients] = useState<Client[]>(initialClients)
-  const [companyNames, setCompanyNames] = useState<string[]>([])
-  const [contactNames, setContactNames] = useState<string[]>([])
+  const [companyNames, setCompanyNames] = useState<string[]>(() => 
+    [...new Set(initialClients.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))]
+  )
+  const [contactNames, setContactNames] = useState<string[]>(() => 
+    [...new Set(initialClients.map(c => String(c.contact_name || '')).filter(Boolean))]
+  )
   const [addresses, setAddresses] = useState<string[]>([])
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
   const [serviceNames, setServiceNames] = useState<string[]>([])
@@ -140,48 +151,66 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
   const [validUntil, setValidUntil] = useState('')
   const [status, setStatus] = useState('pending')
   const [notes, setNotes] = useState('')
+  const [quoteNumber, setQuoteNumber] = useState('Q-5000')
 
-  const quoteNumber = `Q-${Date.now().toString().slice(-5)}`
-
-  // Load clients + services from DB when dialog opens
+  // Load full clients + services from DB when dialog opens
   useEffect(() => {
     if (!open) return
-    console.log('[v0] AddQuotationDialog opened, loading data...')
     async function load() {
-      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
-      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
-      if (clientData) {
-        setClients(clientData)
-        const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])]
-        console.log('[v0] Company names:', compNames.length, compNames.slice(0, 5))
-        setCompanyNames(compNames)
-        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
-        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+      try {
+        const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+        if (clientData && Array.isArray(clientData)) {
+          setClients(clientData)
+          setCompanyNames([...new Set(clientData.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))])
+          setContactNames([...new Set(clientData.map(c => String(c.contact_name || '')).filter(Boolean))])
+          setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).map(v => String(v)).join(', ')).filter(Boolean))])
+        } else if (clientError) {
+          console.error('[v0] Client fetch error:', clientError)
+        }
+
+        const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+        if (svcData && Array.isArray(svcData)) {
+          setServiceOptions(svcData.map(s => ({ name: String(s.name || ''), base_price: Number(s.base_price || 0) })))
+          setServiceNames(svcData.map(s => String(s.name || '')).filter(Boolean))
+        }
+
+        // Generate next quote number (start at 5000, increment from last)
+        const { data: allQuotes } = await supabase.from('quotations').select('quote_number')
+        const START = 5000
+        let nextNum = START
+        if (allQuotes && allQuotes.length > 0) {
+          const nums = allQuotes
+            .map((r: any) => {
+              const match = String(r.quote_number ?? '').match(/Q-(\d+)/i)
+              return match ? parseInt(match[1], 10) : 0
+            })
+            .filter((n: number) => n >= START)
+          if (nums.length > 0) nextNum = Math.max(...nums) + 1
+        }
+        setQuoteNumber(`Q-${nextNum}`)
+
+        const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
+        const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
+        const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
+        setJobTitles(titles)
+      } catch (err) {
+        console.error('[v0] Background load failed:', err)
       }
-      const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
-      console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
-      if (svcData) {
-        setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
-        setServiceNames(svcData.map(s => s.name))
-      }
-      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
-      const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
-      const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
-      setJobTitles(titles)
     }
     load()
   }, [open])
 
-  // Auto-fill contact/address/TRN when company is selected
-  const handleCompanySelect = (company: string) => {
-    setSelectedCompany(company)
-    const match = clients.find(c => c.company_name === company)
-    if (match) {
-      if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
-      const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
-      if (addr) setAddress(addr)
-      if (match.trn) setTrn(match.trn)
-      setContactNames(clients.filter(c => c.company_name === company).map(c => c.contact_name).filter(Boolean))
+  // When client is selected, auto-fill contact, address, TRN and update contact name list
+  const handleClientSelect = (val: string) => {
+    setSelectedCompany(val)
+    const matching = clients.filter(c => c.company_name === val || c.contact_name === val)
+    if (matching.length > 0) {
+      const first = matching[0]
+      setContactPerson(first.contact_name || '')
+      const addr = [first.address, first.city, first.parish].filter(Boolean).join(', ')
+      setAddress(addr)
+      // Note: TRN is not currently in the clients table, so it remains a manual field for now
+      setContactNames([...new Set(matching.map(c => c.contact_name).filter(Boolean) as string[])])
     }
   }
 
@@ -245,7 +274,7 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
           <Plus className="mr-2 h-4 w-4" /> New Quotation
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-5xl! w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white text-xl">New Quotation</DialogTitle>
         </DialogHeader>
@@ -260,7 +289,12 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
               <div className="flex gap-1 items-center">
-                <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
+                <Combobox
+              value={selectedCompany}
+              onChange={handleClientSelect}
+              options={companyNames}
+              placeholder="Select or type company..."
+            />
                 <button type="button" onClick={() => setSelectedCompany('')}
                   className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
                   <Plus className="h-3.5 w-3.5" />

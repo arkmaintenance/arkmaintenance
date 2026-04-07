@@ -149,6 +149,11 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
       const subtotal = Number(data.subtotal) || items.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0)
       const total = Number(data.total) || subtotal
 
+      const dateStr = new Date(data.created_at).toISOString().split('T')[0]
+      const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
+      const jobDesc = data.title || ''
+      const safeFileName = `${data.quote_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+
       await downloadQuotationPdf({
         quote_number: data.quote_number,
         date: new Date(data.created_at).toLocaleDateString('en-US', {
@@ -168,7 +173,7 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
         items,
         subtotal,
         total,
-      }, `Quote-${data.quote_number}.pdf`)
+      }, safeFileName)
 
       toast.success('Quotation PDF downloaded')
     } catch (error) {

@@ -168,6 +168,11 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
       const total = Number(data.total) || subtotal
       const balanceDue = Number(data.balance_due) || total
 
+      const dateStr = new Date(data.issued_date || data.created_at).toISOString().split('T')[0]
+      const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
+      const jobDesc = data.title || ''
+      const safeFileName = `${data.invoice_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+
       await downloadInvoicePdf({
         invoice_number: data.invoice_number,
         date: new Date(data.issued_date || data.created_at).toLocaleDateString('en-US', {
@@ -192,7 +197,7 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
         subtotal,
         total,
         balance_due: balanceDue,
-      }, `Invoice-${data.invoice_number}.pdf`)
+      }, safeFileName)
 
       toast.success('Invoice PDF downloaded')
     } catch (error) {

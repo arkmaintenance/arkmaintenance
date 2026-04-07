@@ -14,7 +14,7 @@ export default async function QuotationsPage() {
       .from('quotations')
       .select('*, clients(contact_name, company_name)')
       .order('created_at', { ascending: false }),
-    supabase.from('clients').select('id, contact_name, company_name'),
+    supabase.from('clients').select('id, contact_name, company_name, address, city, parish'),
   ])
 
   return (

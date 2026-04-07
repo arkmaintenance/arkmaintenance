@@ -81,7 +81,7 @@ const Combobox = forwardRef<HTMLInputElement, {
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
       className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
-      {options.length === 0 ? 'Loading...' : 'No matches found'}
+      {options.length === 0 ? 'Loading records...' : 'No matches found'}
     </div>
   ))
 
@@ -121,8 +121,12 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
 
   // DB-loaded options
   const [clients, setClients] = useState<Client[]>(initialClients)
-  const [companyNames, setCompanyNames] = useState<string[]>([])
-  const [contactNames, setContactNames] = useState<string[]>([])
+  const [companyNames, setCompanyNames] = useState<string[]>(() => 
+    [...new Set(initialClients.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))]
+  )
+  const [contactNames, setContactNames] = useState<string[]>(() => 
+    [...new Set(initialClients.map(c => String(c.contact_name || '')).filter(Boolean))]
+  )
   const [addresses, setAddresses] = useState<string[]>([])
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
   const [serviceNames, setServiceNames] = useState<string[]>([])
@@ -144,61 +148,61 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
   const [notes, setNotes] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('INV-100600')
 
-  // Load clients + services from DB when dialog opens
+  // Load full clients + services from DB when dialog opens
   useEffect(() => {
     if (!open) return
-    console.log('[v0] AddInvoiceDialog opened, loading data...')
     async function load() {
-      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
-      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
-      if (clientData && Array.isArray(clientData)) {
-        setClients(clientData)
-        const compNames = [...new Set(clientData.map(c => String(c.company_name || '')).filter(Boolean))]
-        setCompanyNames(compNames)
-        const contNames = [...new Set(clientData.map(c => String(c.contact_name || '')).filter(Boolean))]
-        setContactNames(contNames)
-        const addrs = [...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).map(v => String(v)).join(', ')).filter(Boolean))]
-        setAddresses(addrs)
-      }
-      const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
-      console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
-      if (svcData && Array.isArray(svcData)) {
-        setServiceOptions(svcData.map(s => ({ name: String(s.name || ''), base_price: Number(s.base_price || 0) })))
-        setServiceNames(svcData.map(s => String(s.name || '')).filter(Boolean))
-      }
-      // Generate next invoice number (start at 100600, increment from last)
-      const { data: allInvoices } = await supabase.from('invoices').select('invoice_number')
-      const START = 100600
-      let nextNum = START
-      if (allInvoices && allInvoices.length > 0) {
-        const nums = allInvoices
-          .map((r: any) => {
-            const match = String(r.invoice_number ?? '').match(/INV-(\d+)/i)
-            return match ? parseInt(match[1], 10) : 0
-          })
-          .filter((n: number) => n >= START)
-        if (nums.length > 0) nextNum = Math.max(...nums) + 1
-      }
-      setInvoiceNumber(`INV-${nextNum}`)
+      try {
+        const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+        if (clientData && Array.isArray(clientData)) {
+          setClients(clientData)
+          setCompanyNames([...new Set(clientData.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))])
+          setContactNames([...new Set(clientData.map(c => String(c.contact_name || '')).filter(Boolean))])
+          setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).map(v => String(v)).join(', ')).filter(Boolean))])
+        } else if (clientError) {
+          console.error('[v0] Client fetch error:', clientError)
+        }
 
-      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
-      const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
-      const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
-      setJobTitles(titles)
+        const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+        if (svcData && Array.isArray(svcData)) {
+          setServiceOptions(svcData.map(s => ({ name: String(s.name || ''), base_price: Number(s.base_price || 0) })))
+          setServiceNames(svcData.map(s => String(s.name || '')).filter(Boolean))
+        }
+
+        // Generate next invoice number (start at 100600, increment from last)
+        const { data: allInvs } = await supabase.from('invoices').select('invoice_number')
+        const START = 100600
+        let nextNum = START
+        if (allInvs && allInvs.length > 0) {
+          const nums = allInvs
+            .map((r: any) => parseInt(String(r.invoice_number ?? '').replace(/\D/g, ''), 10))
+            .filter((n: number) => !isNaN(n) && n >= START)
+          if (nums.length > 0) nextNum = Math.max(...nums) + 1
+        }
+        setInvoiceNumber(`INV-${nextNum}`)
+
+        const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
+        const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
+        const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
+        setJobTitles(titles)
+      } catch (err) {
+        console.error('[v0] Background load failed:', err)
+      }
     }
     load()
   }, [open])
 
-  // Auto-fill contact/address/TRN when company is selected
-  const handleCompanySelect = (company: string) => {
-    setSelectedCompany(company)
-    const match = clients.find(c => c.company_name === company)
-    if (match) {
-      if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
-      const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
-      if (addr) setAddress(addr)
-      if (match.trn) setTrn(match.trn)
-      setContactNames(clients.filter(c => c.company_name === company).map(c => c.contact_name).filter(Boolean))
+  // When client is selected, auto-fill contact, address, TRN and update contact name list
+  const handleClientSelect = (val: string) => {
+    setSelectedCompany(val)
+    const matching = clients.filter(c => c.company_name === val || c.contact_name === val)
+    if (matching.length > 0) {
+      const first = matching[0]
+      setContactPerson(first.contact_name || '')
+      const addr = [first.address, first.city, first.parish].filter(Boolean).join(', ')
+      setAddress(addr)
+      // Note: TRN is not currently in the clients table, so it remains a manual field for now
+      setContactNames([...new Set(matching.map(c => c.contact_name).filter(Boolean) as string[])])
     }
   }
 
@@ -282,7 +286,12 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
               <div className="flex gap-1 items-center">
-                <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
+                <Combobox
+                  value={selectedCompany}
+                  onChange={handleClientSelect}
+                  options={companyNames}
+                  placeholder="Select or type company..."
+                />
                 <button type="button" onClick={() => setSelectedCompany('')}
                   className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
                   <Plus className="h-3.5 w-3.5" />

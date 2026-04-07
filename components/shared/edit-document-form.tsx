@@ -135,8 +135,14 @@ const Combobox = forwardRef<HTMLInputElement, {
         <button
           key={i}
           type="button"
-          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
-          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate cursor-pointer"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onChange(opt)
+            setQuery(opt)
+            setOpen(false)
+          }}
         >
           {opt}
         </button>
@@ -499,13 +505,12 @@ export function EditDocumentForm({
       // Load all clients
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
-        .select('id, contact_name, company_name, address, city, parish, email, trn')
+        .select('id, contact_name, company_name, address, city, parish, email')
         .order('company_name')
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
-        const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean))]
-        console.log('[v0] Company names:', compNames.length, compNames.slice(0, 5))
+        const compNames = [...new Set(clientData.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))]
         setCompanyNames(compNames)
         // Pre-filter contact names by already-selected company if one is set
         const preSelectedCompany = initialValues.selectedClientId
@@ -561,14 +566,15 @@ export function EditDocumentForm({
   // When company is selected, auto-fill contact, address, TRN and update contact name list
   const handleClientSelect = (companyOrName: string) => {
     setSelectedClientId(companyOrName)
-    // Find all clients matching this company so we can show their contacts
-    const matchingClients = clients.filter(c => c.company_name === companyOrName)
+    // Find all clients matching this company/name so we can show their contacts
+    const matchingClients = clients.filter(c => c.company_name === companyOrName || c.contact_name === companyOrName)
     if (matchingClients.length > 0) {
       // Update contact name dropdown to only show contacts for this company
-      setContactNames(matchingClients.map(c => c.contact_name).filter(Boolean))
+      // Note: TRN is not currently in the clients table, so it remains a manual field for now
+      setContactNames([...new Set(matchingClients.map(c => c.contact_name).filter(Boolean))])
       // Auto-fill first contact if field is blank
       const first = matchingClients[0]
-      if (first.contact_name && !contactPerson) setContactPerson(first.contact_name)
+      if (first.contact_name) setContactPerson(first.contact_name)
       const addr = [first.address, first.city, first.parish].filter(Boolean).join(', ')
       if (addr) setAddress(addr)
       if (first.trn) setTrn(first.trn)

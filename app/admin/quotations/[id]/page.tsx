@@ -263,7 +263,12 @@ export default function QuotationPreviewPage() {
 
     setDownloadingPdf(true)
     try {
-      await downloadQuotationPdf(quotationData, `Quote-${quotation.quote_number}.pdf`)
+      const dateStr = new Date(quotation.created_at).toISOString().split('T')[0]
+      const clientName = quotation.clients?.company_name || quotation.clients?.contact_name || 'Client'
+      const jobDesc = quotation.title || ''
+      const safeFileName = `${quotation.quote_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+
+      await downloadQuotationPdf(quotationData, safeFileName)
       toast.success('Quotation PDF downloaded')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to download quotation PDF')
