@@ -11,27 +11,19 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Rolling 12-month window for chart (so Dec 2025 invoices appear)
-  const now = new Date()
-  const twelveMonthsAgo = new Date(now)
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
-  twelveMonthsAgo.setDate(1)
-  const chartStart = twelveMonthsAgo.toISOString().split('T')[0]
-
-  // Fetch ALL invoices for lifetime stats, but only last-12-months for chart
+  // Dashboard shows 2026 ONLY — 2025 is in the Analytics tab for comparison
   const { data: allInvoices } = await supabase
     .from('invoices')
     .select('*, clients(contact_name, company_name)')
+    .gte('issued_date', '2026-01-01')
+    .lt('issued_date', '2027-01-01')
     .order('issued_date', { ascending: false })
 
-  const { data: chartInvoices } = await supabase
-    .from('invoices')
-    .select('issued_date, total, created_at')
-    .gte('issued_date', chartStart)
-    .order('issued_date', { ascending: false })
+  // Chart uses the same 2026 invoices (Jan–Dec 2026)
+  const chartInvoices = allInvoices
 
-  // All-time stats
-  const yearInvoices = allInvoices  // keep variable name for components below
+  // 2026-only stats
+  const yearInvoices = allInvoices
   const invoiceCount = allInvoices?.length || 0
   const totalRevenue = allInvoices?.reduce((s, i) => s + Number(i.total || 0), 0) || 0
   const pendingAmount = allInvoices
@@ -42,10 +34,12 @@ export default async function DashboardPage() {
     ?.filter(i => i.status === 'overdue')
     .reduce((s, i) => s + Number(i.balance_due || 0), 0) || 0
 
-  // All-time expenses
+  // 2026-only expenses
   const { data: yearExpenses } = await supabase
     .from('expenses')
     .select('amount, date, created_at')
+    .gte('date', '2026-01-01')
+    .lt('date', '2027-01-01')
   const totalExpenses = yearExpenses?.reduce((s, e) => s + Number(e.amount || 0), 0) || 0
 
   // Global counts (clients, jobs, technicians are not year-scoped)
@@ -90,27 +84,22 @@ export default async function DashboardPage() {
     activeJobs: activeJobs || 0,
   }
 
-  // Rolling 12-month chart — labelled by actual calendar month
+  // Jan–Dec 2026 chart
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const monthlyData = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(twelveMonthsAgo)
-    d.setMonth(d.getMonth() + i)
-    const y = d.getFullYear()
-    const m = d.getMonth()
-    const label = `${MONTH_NAMES[m]} ${y !== now.getFullYear() ? y : ''}`
+  const monthlyData = Array.from({ length: 12 }, (_, m) => {
     const rev = (chartInvoices || [])
       .filter(inv => {
         const dt = new Date(inv.issued_date || inv.created_at)
-        return dt.getFullYear() === y && dt.getMonth() === m
+        return dt.getFullYear() === 2026 && dt.getMonth() === m
       })
       .reduce((s, inv) => s + Number(inv.total || 0), 0)
     const exp = (yearExpenses || [])
       .filter(e => {
         const dt = new Date(e.date || e.created_at)
-        return dt.getFullYear() === y && dt.getMonth() === m
+        return dt.getFullYear() === 2026 && dt.getMonth() === m
       })
       .reduce((s, e) => s + Number(e.amount || 0), 0)
-    return { month: label.trim(), revenue: rev, expenses: exp }
+    return { month: MONTH_NAMES[m], revenue: rev, expenses: exp }
   })
 
   return (
@@ -123,7 +112,7 @@ export default async function DashboardPage() {
               Welcome back, {user?.user_metadata?.first_name || 'Admin'}!
             </h2>
             <p className="text-muted-foreground">
-              {"Here's what's happening with your business. (All-time figures, chart shows last 12 months)"}
+              {"2026 figures. Visit Analytics for 2025 vs 2026 comparison."}
             </p>
           </div>
         </div>
