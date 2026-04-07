@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
@@ -33,9 +33,9 @@ const Combobox = forwardRef<HTMLInputElement, {
   useEffect(() => { setQuery(value) }, [value])
 
   useEffect(() => {
-    if (!forwardRef) return
+    if (!fwdRef) return
     if (typeof fwdRef === 'function') fwdRef(inputRef.current)
-    else if (fwdRef) fwdRef.current = inputRef.current
+    else if (fwdRef) (fwdRef as any).current = inputRef.current
   })
 
   useEffect(() => {
@@ -62,11 +62,17 @@ const Combobox = forwardRef<HTMLInputElement, {
   const dropdown = open && (filtered.length > 0 ? (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto pointer-events-auto">
       {filtered.map((opt, i) => (
         <button key={i} type="button"
-          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
-          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}>
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate cursor-pointer"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onChange(opt)
+            setQuery(opt)
+            setOpen(false)
+          }}>
           {opt}
         </button>
       ))}
@@ -93,7 +99,7 @@ const Combobox = forwardRef<HTMLInputElement, {
           <ChevronDown className="h-3 w-3" />
         </button>
       </div>
-      {mounted && open && createPortal(dropdown, document.body)}
+      {mounted && open && <DialogPortal>{dropdown}</DialogPortal>}
     </div>
   )
 })
@@ -136,8 +142,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
     { id: '1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }
   ])
   const [notes, setNotes] = useState('')
-
-  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`
+  const [invoiceNumber, setInvoiceNumber] = useState('INV-100600')
 
   // Load clients + services from DB when dialog opens
   useEffect(() => {
@@ -146,20 +151,36 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
     async function load() {
       const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
-      if (clientData) {
+      if (clientData && Array.isArray(clientData)) {
         setClients(clientData)
-        const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])]
-        console.log('[v0] Company names:', compNames.length, compNames.slice(0, 5))
+        const compNames = [...new Set(clientData.map(c => String(c.company_name || '')).filter(Boolean))]
         setCompanyNames(compNames)
-        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
-        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+        const contNames = [...new Set(clientData.map(c => String(c.contact_name || '')).filter(Boolean))]
+        setContactNames(contNames)
+        const addrs = [...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).map(v => String(v)).join(', ')).filter(Boolean))]
+        setAddresses(addrs)
       }
       const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
       console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
-      if (svcData) {
-        setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
-        setServiceNames(svcData.map(s => s.name))
+      if (svcData && Array.isArray(svcData)) {
+        setServiceOptions(svcData.map(s => ({ name: String(s.name || ''), base_price: Number(s.base_price || 0) })))
+        setServiceNames(svcData.map(s => String(s.name || '')).filter(Boolean))
       }
+      // Generate next invoice number (start at 100600, increment from last)
+      const { data: allInvoices } = await supabase.from('invoices').select('invoice_number')
+      const START = 100600
+      let nextNum = START
+      if (allInvoices && allInvoices.length > 0) {
+        const nums = allInvoices
+          .map((r: any) => {
+            const match = String(r.invoice_number ?? '').match(/INV-(\d+)/i)
+            return match ? parseInt(match[1], 10) : 0
+          })
+          .filter((n: number) => n >= START)
+        if (nums.length > 0) nextNum = Math.max(...nums) + 1
+      }
+      setInvoiceNumber(`INV-${nextNum}`)
+
       const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
       const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
       const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
@@ -242,7 +263,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
           <Plus className="mr-2 h-4 w-4" /> New Invoice
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-5xl! w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white text-xl">New Invoice</DialogTitle>
         </DialogHeader>

@@ -276,7 +276,7 @@ INSERT INTO invoices (
 
 -- 18. INV 100433 - NextGen Impact Ministries - Installation of 3 Ton Air Conditioners - Dec 29, 2025
 (
-  'INV-100433',
+  'INV-100600',
   'Installation of New 3 Ton Air Conditioners - NextGen Impact Ministries International',
   '[
     {"description": "Installation of New 3 Ton Air Conditioners", "quantity": 2, "unit_price": 45000, "total": 70000},
