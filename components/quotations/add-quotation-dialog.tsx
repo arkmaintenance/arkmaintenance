@@ -140,15 +140,20 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
   // Load clients + services from DB when dialog opens
   useEffect(() => {
     if (!open) return
+    console.log('[v0] AddQuotationDialog opened, loading data...')
     async function load() {
-      const { data: clientData } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
+      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
+      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
-        setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])])
+        const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])]
+        console.log('[v0] Company names:', compNames.length, compNames.slice(0, 5))
+        setCompanyNames(compNames)
         setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
         setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
       }
-      const { data: svcData } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+      const { data: svcData, error: svcError } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+      console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
       if (svcData) {
         setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
         setServiceNames(svcData.map(s => s.name))
