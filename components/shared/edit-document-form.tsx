@@ -75,6 +75,11 @@ const Combobox = forwardRef<HTMLInputElement, {
   placeholder?: string
   className?: string
 }>(function Combobox({ value, onChange, options, placeholder, className = '' }, forwardedRef) {
+  // Debug: log options received
+  useEffect(() => {
+    console.log('[v0] Combobox options:', placeholder, options.length, options.slice(0, 3))
+  }, [options.length, placeholder])
+  
   const [open, setOpen]       = useState(false)
   const [mounted, setMounted] = useState(false)
   const [query, setQuery]     = useState(value)
@@ -443,7 +448,7 @@ function DatePickerField({
   )
 }
 
-// ─��─ Main Component ───────────────────────────────────�����───────────────────────
+// ─��─ Main Component ───────────────────────────────────�������───────────────────────
 
 export function EditDocumentForm({
   docType,
@@ -455,6 +460,7 @@ export function EditDocumentForm({
   onCancel,
 }: EditDocumentFormProps) {
   const supabase = createClient()
+  console.log('[v0] EditDocumentForm rendered for', docType, docNumber)
 
   // ── DB-loaded option lists ──────────────────────────────────────────────────
   const [clients, setClients] = useState<ClientOption[]>([])
