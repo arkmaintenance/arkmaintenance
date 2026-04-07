@@ -120,13 +120,6 @@ const Combobox = forwardRef<HTMLInputElement, {
     ? options
     : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
 
-  // Debug: log when dropdown should show
-  useEffect(() => {
-    if (open) {
-      console.log('[v0] Combobox OPEN - options:', options.length, 'filtered:', filtered.length, 'query:', query, 'mounted:', mounted)
-    }
-  }, [open, options.length, filtered.length, query, mounted])
-
   const dropdown = filtered.length > 0 && (
     <div
       ref={dropRef}
@@ -502,11 +495,9 @@ export function EditDocumentForm({
         .from('clients')
         .select('id, contact_name, company_name, address, city, parish, email, trn')
         .order('company_name')
-      console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
         const compNames = [...new Set(clientData.map(c => c.company_name).filter(Boolean))]
-        console.log('[v0] Company names set:', compNames)
         setCompanyNames(compNames)
         // Pre-filter contact names by already-selected company if one is set
         const preSelectedCompany = initialValues.selectedClientId
@@ -541,21 +532,17 @@ export function EditDocumentForm({
       setLineDescriptions([...new Set(allDescs)])
 
       // Load services catalogue — names become the primary dropdown options
-      const { data: svcData, error: svcError } = await supabase
+      const { data: svcData } = await supabase
         .from('services')
         .select('name, description, base_price')
         .eq('status', 'active')
         .order('category')
         .order('name')
-      console.log('[v0] Services loaded:', svcData?.length, 'error:', svcError)
       if (svcData && svcData.length > 0) {
         setServiceOptions(svcData.map(s => ({ name: s.name, description: s.description || '', base_price: Number(s.base_price) })))
-        // Prepend service names to the description dropdown (service names first, then historical)
         const svcNames = svcData.map(s => s.name)
-        console.log('[v0] Service names for dropdown:', svcNames)
         setLineDescriptions(prev => {
           const combined = [...new Set([...svcNames, ...prev])]
-          console.log('[v0] Total lineDescriptions:', combined.length)
           return combined
         })
       }

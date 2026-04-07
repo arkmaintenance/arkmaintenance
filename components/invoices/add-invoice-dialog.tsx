@@ -1,54 +1,122 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useRef, forwardRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Plus, Loader2, Link2, MapPin, Trash2 } from 'lucide-react'
+import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
 
-interface Client {
-  id: string
-  contact_name: string
-  company_name: string | null
-  address?: string
-}
+// ─── Inline Combobox (portal-based) ──────────────────────────────────────────
 
-interface LineItem {
-  id: string
-  description: string
-  quantity: number
-  unit_price: number
-  discount: number
-  total: number
-}
+const Combobox = forwardRef<HTMLInputElement, {
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+}>(function Combobox({ value, onChange, options, placeholder }, fwdRef) {
+  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [query, setQuery] = useState(value)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
 
-interface AddInvoiceDialogProps {
-  clients: Client[]
-}
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { setQuery(value) }, [value])
 
-export function AddInvoiceDialog({ clients }: AddInvoiceDialogProps) {
+  useEffect(() => {
+    if (!forwardRef) return
+    if (typeof fwdRef === 'function') fwdRef(inputRef.current)
+    else if (fwdRef) fwdRef.current = inputRef.current
+  })
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node) &&
+          containerRef.current && !containerRef.current.contains(e.target as Node))
+        setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (open && containerRef.current) {
+      const r = containerRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width })
+    }
+  }, [open, options.length])
+
+  const filtered = query.trim() === '' ? options : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+
+  const dropdown = filtered.length > 0 && (
+    <div ref={dropRef}
+      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
+      {filtered.map((opt, i) => (
+        <button key={i} type="button"
+          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
+          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+
+  return (
+    <div ref={containerRef} className="relative flex-1">
+      <div className="flex">
+        <Input ref={inputRef} value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="bg-[#2a2a4a] border-[#3a3a5a] text-white rounded-r-none border-r-0 flex-1 placeholder:text-gray-500" />
+        <button type="button"
+          onClick={() => { if (!open) setQuery(''); setOpen(o => !o); inputRef.current?.focus() }}
+          className="px-2 bg-[#2a2a4a] border border-[#3a3a5a] border-l-0 rounded-r-md text-gray-400 hover:text-white">
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+      {mounted && open && createPortal(dropdown, document.body)}
+    </div>
+  )
+})
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Client { id: string; contact_name: string; company_name: string | null; address?: string; city?: string; parish?: string; trn?: string }
+interface ServiceOption { name: string; base_price: number }
+interface LineItem { id: string; description: string; quantity: number; unit_price: number; discount: number; total: number }
+interface AddInvoiceDialogProps { clients: Client[] }
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [selectedClient, setSelectedClient] = useState<string>('')
+  const router = useRouter()
+  const supabase = createClient()
+
+  // DB-loaded options
+  const [clients, setClients] = useState<Client[]>(initialClients)
+  const [companyNames, setCompanyNames] = useState<string[]>([])
+  const [contactNames, setContactNames] = useState<string[]>([])
+  const [addresses, setAddresses] = useState<string[]>([])
+  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
+  const [serviceNames, setServiceNames] = useState<string[]>([])
+  const [jobTitles, setJobTitles] = useState<string[]>([])
+
+  // Form state
+  const [selectedCompany, setSelectedCompany] = useState('')
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0])
   const [contactPerson, setContactPerson] = useState('')
   const [serviceLocation, setServiceLocation] = useState('')
@@ -60,112 +128,96 @@ export function AddInvoiceDialog({ clients }: AddInvoiceDialogProps) {
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: '1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }
   ])
-  const [jobTimeline, setJobTimeline] = useState('')
-  const [isServiceContract, setIsServiceContract] = useState(false)
-  const [recurringSchedule, setRecurringSchedule] = useState('one-time')
   const [notes, setNotes] = useState('')
-  
-  const router = useRouter()
-  const supabase = createClient()
 
-  const invoiceNumber = `INV-${100500 + Math.floor(Math.random() * 1000)}`
+  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`
 
-  const calculateItemTotal = (item: LineItem) => {
-    return (item.quantity * item.unit_price) - item.discount
-  }
+  // Load clients + services from DB when dialog opens
+  useEffect(() => {
+    if (!open) return
+    async function load() {
+      const { data: clientData } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
+      if (clientData) {
+        setClients(clientData)
+        setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])])
+        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
+        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+      }
+      const { data: svcData } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
+      if (svcData) {
+        setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
+        setServiceNames(svcData.map(s => s.name))
+      }
+      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
+      const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
+      const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
+      setJobTitles(titles)
+    }
+    load()
+  }, [open])
 
-  const calculateTotal = () => {
-    return lineItems.reduce((sum, item) => sum + calculateItemTotal(item), 0)
-  }
-
-  const addLineItem = () => {
-    setLineItems([...lineItems, {
-      id: Date.now().toString(),
-      description: '',
-      quantity: 1,
-      unit_price: 0,
-      discount: 0,
-      total: 0
-    }])
-  }
-
-  const removeLineItem = (id: string) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter(item => item.id !== id))
+  // Auto-fill contact/address/TRN when company is selected
+  const handleCompanySelect = (company: string) => {
+    setSelectedCompany(company)
+    const match = clients.find(c => c.company_name === company)
+    if (match) {
+      if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
+      const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
+      if (addr) setAddress(addr)
+      if (match.trn) setTrn(match.trn)
+      setContactNames(clients.filter(c => c.company_name === company).map(c => c.contact_name).filter(Boolean))
     }
   }
 
+  const calcTotal = (item: LineItem) => item.quantity * item.unit_price - item.discount
+  const totalAmount = lineItems.reduce((s, i) => s + calcTotal(i), 0)
+
   const updateLineItem = (id: string, field: keyof LineItem, value: string | number) => {
-    setLineItems(lineItems.map(item => {
-      if (item.id === id) {
-        const updated = { ...item, [field]: value }
-        updated.total = calculateItemTotal(updated)
-        return updated
-      }
-      return item
+    setLineItems(prev => prev.map(item => {
+      if (item.id !== id) return item
+      const updated = { ...item, [field]: typeof value === 'string' && field !== 'description' ? parseFloat(value) || 0 : value }
+      updated.total = calcTotal(updated)
+      return updated
     }))
   }
 
-  const addSection = () => {
-    setLineItems([...lineItems, {
-      id: `section-${Date.now()}`,
-      description: '--- New Section ---',
-      quantity: 0,
-      unit_price: 0,
-      discount: 0,
-      total: 0
-    }])
+  const selectService = (id: string, name: string) => {
+    const svc = serviceOptions.find(s => s.name === name)
+    setLineItems(prev => prev.map(item => {
+      if (item.id !== id) return item
+      const updated = { ...item, description: name, unit_price: svc?.base_price ?? item.unit_price }
+      updated.total = calcTotal(updated)
+      return updated
+    }))
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const addLine = () => setLineItems(prev => [...prev, { id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }])
+  const removeLine = (id: string) => { if (lineItems.length > 1) setLineItems(prev => prev.filter(i => i.id !== id)) }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { toast.error('Not logged in'); setLoading(false); return }
 
-    if (!user) {
-      toast.error('You must be logged in')
-      setLoading(false)
-      return
-    }
-
-    const total = calculateTotal()
-
+    const clientRecord = clients.find(c => c.company_name === selectedCompany)
     const { error } = await supabase.from('invoices').insert({
       user_id: user.id,
       invoice_number: invoiceNumber,
       title: serviceDescription,
-      client_id: selectedClient || null,
+      client_id: clientRecord?.id || null,
       items: lineItems,
-      subtotal: total,
-      tax_rate: 0,
-      tax_amount: 0,
-      discount: lineItems.reduce((sum, item) => sum + item.discount, 0),
-      total,
-      balance_due: total,
+      subtotal: totalAmount,
+      tax_rate: 0, tax_amount: 0,
+      discount: lineItems.reduce((s, i) => s + i.discount, 0),
+      total: totalAmount,
+      balance_due: totalAmount,
       status: 'draft',
       issued_date: invoiceDate,
-      notes: JSON.stringify({
-        contact_person: contactPerson,
-        service_location: serviceLocation,
-        address,
-        payment_terms: paymentTerms,
-        po_number: poNumber,
-        trn,
-        job_timeline: jobTimeline,
-        is_service_contract: isServiceContract,
-        recurring_schedule: recurringSchedule,
-        notes
-      }),
+      notes: JSON.stringify({ contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, notes }),
     })
-
-    if (error) {
-      toast.error('Failed to create invoice')
-      setLoading(false)
-      return
-    }
-
-    toast.success('Invoice created successfully')
+    if (error) { toast.error('Failed to create invoice'); setLoading(false); return }
+    toast.success('Invoice created')
     setOpen(false)
     setLoading(false)
     router.refresh()
@@ -175,300 +227,212 @@ export function AddInvoiceDialog({ clients }: AddInvoiceDialogProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-[#FF6B00] hover:bg-[#FF6B00]/90 text-white font-semibold">
-          <Plus className="mr-2 h-4 w-4" />
-          New Invoice
+          <Plus className="mr-2 h-4 w-4" /> New Invoice
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-[#1a1a2e] border-[#2a2a4a] max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogHeader>
           <DialogTitle className="text-white text-xl">New Invoice</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Row 1: Invoice Number + Invoice Date + Company */}
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          {/* Row 1: Invoice # + Date + Company */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Invoice Number</Label>
-              <Input
-                value={invoiceNumber}
-                readOnly
-                className="bg-[#00BCD4] border-[#00BCD4] text-black font-semibold"
-              />
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice #</Label>
+              <div className="h-9 flex items-center px-3 rounded-md border border-[#00BCD4] bg-[#00BCD4]/10 text-[#00BCD4] font-bold text-sm">{invoiceNumber}</div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Invoice Date</Label>
-              <Input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="bg-[#2a2a4a] border-[#3a3a5a] text-white"
-              />
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice Date</Label>
+              <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Company</Label>
-              <div className="flex gap-2">
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
-                  <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1">
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id} className="text-white">
-                        {client.company_name || client.contact_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button type="button" variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                  <Link2 className="h-4 w-4" />
-                </Button>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Client / Company</Label>
+              <div className="flex gap-1 items-center">
+                <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
+                <button type="button" onClick={() => setSelectedCompany('')}
+                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setAddress(''); setTrn('') }}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
 
           {/* Row 2: Contact Person + Service Location */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Contact Person</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                  placeholder="Contact person name"
-                  className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-                />
-                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00] hover:text-[#FF8C00]">
-                  <Plus className="h-4 w-4" />
-                </Button>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Contact Person</Label>
+              <div className="flex gap-1 items-center">
+                <Combobox value={contactPerson} onChange={setContactPerson} options={contactNames} placeholder="Select or type contact..." />
+                <button type="button" onClick={() => setContactPerson('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Service Location</Label>
-              <div className="flex gap-2">
-                <Select value={serviceLocation} onValueChange={setServiceLocation}>
-                  <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1">
-                    <SelectValue placeholder="Select or type location" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
-                    <SelectItem value="kingston" className="text-white">Kingston</SelectItem>
-                    <SelectItem value="montego-bay" className="text-white">Montego Bay</SelectItem>
-                    <SelectItem value="ocho-rios" className="text-white">Ocho Rios</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button type="button" variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                  <MapPin className="h-4 w-4" />
-                </Button>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Service Location</Label>
+              <div className="flex gap-1 items-center">
+                <Combobox value={serviceLocation} onChange={setServiceLocation}
+                  options={['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville']}
+                  placeholder="Select location..." />
+                <button type="button" onClick={() => setServiceLocation('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
 
           {/* Row 3: Address */}
-          <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Address</Label>
-            <div className="flex gap-2">
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Select or type address"
-                className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-              />
-              <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00] hover:text-[#FF8C00]">
-                <Plus className="h-4 w-4" />
-              </Button>
+          <div className="space-y-1">
+            <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Address</Label>
+            <div className="flex gap-1 items-center">
+              <Combobox value={address} onChange={setAddress} options={addresses} placeholder="Select or type address..." />
+              <button type="button" onClick={() => setAddress('')}
+                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
-          {/* Row 4: Payment Terms + PO Number + TRN */}
+          {/* Row 4: Payment Terms + PO # + TRN */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Payment Terms</Label>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Payment Terms</Label>
               <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
-                  <SelectItem value="COD" className="text-white">COD</SelectItem>
-                  <SelectItem value="Net 15" className="text-white">Net 15</SelectItem>
-                  <SelectItem value="Net 30" className="text-white">Net 30</SelectItem>
-                  <SelectItem value="Net 60" className="text-white">Net 60</SelectItem>
-                  <SelectItem value="50% Deposit" className="text-white">50% Deposit</SelectItem>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                  {['COD','Net 15','Net 30','Net 60','50% Deposit','7 Days','30 Days'].map(t => (
+                    <SelectItem key={t} value={t} className="text-white">{t}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">PO Number</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={poNumber}
-                  onChange={(e) => setPoNumber(e.target.value)}
-                  placeholder="PO Number"
-                  className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-                />
-                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00] hover:text-[#FF8C00]">
-                  <Plus className="h-4 w-4" />
-                </Button>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">PO Number</Label>
+              <div className="flex gap-1 items-center">
+                <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} placeholder="PO Number" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                <button type="button" onClick={() => setPoNumber('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[#E91E63] text-sm">TRN</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={trn}
-                  onChange={(e) => setTrn(e.target.value)}
-                  placeholder="TRN"
-                  className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-                />
-                <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00] hover:text-[#FF8C00]">
-                  <Plus className="h-4 w-4" />
-                </Button>
+            <div className="space-y-1">
+              <Label className="text-[#E91E63] text-xs font-semibold uppercase tracking-wider">TRN</Label>
+              <div className="flex gap-1 items-center">
+                <Input value={trn} onChange={e => setTrn(e.target.value)} placeholder="TRN" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
+                <button type="button" onClick={() => setTrn('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Service Description */}
-          <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Service Description</Label>
-            <Input
-              value={serviceDescription}
-              onChange={(e) => setServiceDescription(e.target.value)}
-              placeholder="Type or select service description"
-              className="bg-[#2a2a4a] border-[#3a3a5a] text-white"
-            />
-          </div>
-
-          {/* Line Items Section */}
-          <div className="space-y-2 border border-[#3a3a5a] rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-gray-300 text-sm">Line Items</Label>
-              <div className="flex gap-2">
-                <Button type="button" variant="ghost" size="sm" onClick={addSection} className="text-[#00BCD4] text-xs">
-                  + Section
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={addLineItem} className="text-[#00BCD4] text-xs">
-                  + Item
-                </Button>
-              </div>
-            </div>
-            
-            {lineItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-2 mb-2">
-                <div className="bg-gradient-to-r from-[#E91E63] via-[#FF6B00] to-[#FFD700] text-white text-xs px-2 py-1 rounded min-w-[120px]">
-                  Service Description
-                </div>
-                <Input
-                  value={item.description}
-                  onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                  placeholder="Type or select service descript"
-                  className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-                />
-                <Button type="button" variant="ghost" size="icon" className="text-[#00BCD4]" onClick={addLineItem}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-gray-400 hover:text-red-500"
-                  onClick={() => removeLineItem(item.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            
-            <div className="flex justify-between items-center mt-4 pt-2 border-t border-[#3a3a5a]">
-              <div className="flex gap-2">
-                <Button type="button" variant="ghost" size="sm" onClick={addSection} className="text-[#00BCD4] text-xs">
-                  + Section
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={addLineItem} className="text-[#00BCD4] text-xs">
-                  + Item
-                </Button>
-              </div>
-              <div className="text-[#FF6B00] font-semibold">
-                Total: JMD {calculateTotal().toLocaleString()}
-              </div>
+          {/* Service Description (job title) */}
+          <div className="space-y-1">
+            <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Service Description (Job Title)</Label>
+            <div className="flex gap-1 items-center">
+              <Combobox value={serviceDescription} onChange={setServiceDescription} options={jobTitles} placeholder="Type or select service description..." />
+              <button type="button" onClick={() => setServiceDescription('')}
+                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
-          {/* Job Completion Timeline */}
-          <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Job Completion Timeline (Day)</Label>
-            <div className="flex gap-2">
-              <Input
-                value={jobTimeline}
-                onChange={(e) => setJobTimeline(e.target.value)}
-                placeholder="e.g. 2-3 business days, 1 week"
-                className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
-              />
-              <Button type="button" variant="ghost" size="icon" className="text-[#FF6B00] hover:text-[#FF8C00]">
-                <Plus className="h-4 w-4" />
-              </Button>
+          {/* Line Items */}
+          <div className="border border-[#3a3a5a] rounded-lg overflow-hidden">
+            <div className="bg-[#0d0d1f] px-3 py-2 flex items-center justify-between">
+              <span className="text-gray-300 text-xs font-semibold uppercase tracking-wider">Line Items</span>
+              <button type="button" onClick={addLine}
+                className="flex items-center gap-1 text-[#00BCD4] text-xs hover:text-[#00BCD4]/80 font-semibold">
+                <Plus className="h-3.5 w-3.5" /> Add Item
+              </button>
             </div>
-          </div>
-
-          {/* Service Contract Toggle + Recurring Schedule */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={isServiceContract}
-                onCheckedChange={setIsServiceContract}
-                className="data-[state=checked]:bg-[#00BCD4]"
-              />
-              <Label className="text-gray-300 text-sm">Service Contract</Label>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse">
+                <thead>
+                  <tr className="bg-[#141428] border-b border-[#3a3a5a]">
+                    <th className="text-left text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[40%]">Description</th>
+                    <th className="text-center text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[12%]">Qty</th>
+                    <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[18%]">Unit Price (JMD)</th>
+                    <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[12%]">Discount</th>
+                    <th className="text-right text-[10px] text-gray-400 font-semibold uppercase px-3 py-2 w-[12%]">Amount</th>
+                    <th className="w-[6%] px-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2a2a4a]">
+                  {lineItems.map(item => (
+                    <tr key={item.id} className="hover:bg-[#2a2a4a]/50">
+                      <td className="px-3 py-2">
+                        <Combobox value={item.description}
+                          onChange={v => selectService(item.id, v)}
+                          options={serviceNames}
+                          placeholder="Select or type service..." />
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-0.5 justify-center">
+                          <button type="button" onClick={() => updateLineItem(item.id, 'quantity', Math.max(1, item.quantity - 1))}
+                            className="w-6 h-6 rounded bg-red-900/40 text-red-300 flex items-center justify-center hover:bg-red-800">
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <Input type="number" value={item.quantity} onChange={e => updateLineItem(item.id, 'quantity', e.target.value)}
+                            className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-center px-1 w-12" min={1} />
+                          <button type="button" onClick={() => updateLineItem(item.id, 'quantity', item.quantity + 1)}
+                            className="w-6 h-6 rounded bg-[#00BCD4]/30 text-[#00BCD4] flex items-center justify-center hover:bg-[#00BCD4]/60">
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input type="number" value={item.unit_price} onChange={e => updateLineItem(item.id, 'unit_price', e.target.value)}
+                          className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-right" min={0} />
+                      </td>
+                      <td className="px-2 py-2">
+                        <Input type="number" value={item.discount} onChange={e => updateLineItem(item.id, 'discount', e.target.value)}
+                          className="bg-[#2a2a4a] border-[#3a3a5a] text-white text-right" min={0} />
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-[#FF6B00] text-sm">
+                        {calcTotal(item).toLocaleString()}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <button type="button" onClick={() => removeLine(item.id)}
+                          className="w-7 h-7 rounded bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/70 mx-auto">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300 text-sm">Recurring Schedule</Label>
-              <Select value={recurringSchedule} onValueChange={setRecurringSchedule}>
-                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#2a2a4a] border-[#3a3a5a]">
-                  <SelectItem value="one-time" className="text-white">One-time</SelectItem>
-                  <SelectItem value="weekly" className="text-white">Weekly</SelectItem>
-                  <SelectItem value="bi-weekly" className="text-white">Bi-Weekly</SelectItem>
-                  <SelectItem value="monthly" className="text-white">Monthly</SelectItem>
-                  <SelectItem value="quarterly" className="text-white">Quarterly</SelectItem>
-                  <SelectItem value="semi-annual" className="text-white">Semi-Annual</SelectItem>
-                  <SelectItem value="annual" className="text-white">Annual</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex justify-between items-center px-4 py-3 bg-[#0d0d1f] border-t border-[#3a3a5a]">
+              <button type="button" onClick={addLine}
+                className="flex items-center gap-1 text-[#00BCD4] text-xs hover:text-[#00BCD4]/80 font-semibold">
+                <Plus className="h-3.5 w-3.5" /> Add Item
+              </button>
+              <div className="text-[#FF6B00] font-bold">Total: JMD {totalAmount.toLocaleString()}</div>
             </div>
           </div>
 
           {/* Notes */}
-          <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Notes</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[80px]"
-            />
+          <div className="space-y-1">
+            <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Notes</Label>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[60px]" />
           </div>
 
-          {/* Footer Buttons */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setOpen(false)} 
-              className="border-[#3a3a5a] text-white hover:bg-[#2a2a4a]"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={loading} 
-              className="bg-[#FF6B00] hover:bg-[#FF6B00]/90 text-white font-semibold px-6"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Invoice'
-              )}
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-[#3a3a5a] text-white hover:bg-[#2a2a4a]">Cancel</Button>
+            <Button type="submit" disabled={loading} className="bg-[#FF6B00] hover:bg-[#FF6B00]/90 text-white font-semibold px-6">
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Invoice'}
             </Button>
           </div>
         </form>
