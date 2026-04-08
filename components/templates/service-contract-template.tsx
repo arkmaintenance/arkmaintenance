@@ -8,6 +8,7 @@ interface ContractItem {
   qty: number
   unit_price: number
   amount: number
+  discount?: number
 }
 
 interface ServiceSchedule {
@@ -36,6 +37,8 @@ interface ServiceContractData {
   customer_position?: string
   ark_representative: string
   ark_position: string
+  scopeOfWork?: string
+  scopeOfWorkPoints?: string[]
 }
 
 interface ServiceContractTemplateProps {
@@ -119,26 +122,21 @@ export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContrac
             </div>
 
             <div>
-              <p className="font-semibold">2. Scope of Service</p>
-              <p className="ml-4">2.1 Our 16 Point Servicing Method Includes but is not limited to:</p>
-              <div className="ml-8 grid grid-cols-2 gap-1 text-xs">
-                <p>a. Cleaning of Evaporator, Evaporator Coils and Evaporator Fan Motor</p>
-                <p>b. Cleaning of Condenser Fan Motor, Condenser Coil, Compressor</p>
-                <p>c. Checking/Cleaning of All Electrical Circuits</p>
-                <p>d. Cleaning off All Electrical Corrosion</p>
-                <p>e. Flushing Of The Drain</p>
-                <p>f. Checking Gas Levels and Topping Up Where Required</p>
-                <p>g. Cleaning and Treating of Air Filters</p>
-                <p>h. Straightening of Evaporator and Condenser Coil Fins</p>
-                <p>i. Checking Refrigerant (Freon) levels</p>
-                <p>j. Checking Superheat and Subcooling</p>
-                <p>k. Checking the Compressor Amp draw</p>
-                <p>l. Checking the Indoor & Outdoor Fan Motor Amp draw</p>
-                <p>m. Checking Electrical Components</p>
-                <p>n. Checking Thermostat for Proper Operation</p>
-                <p>o. Inspecting Overall Operation of Unit</p>
-                <p>p. Recording all findings and Maintenance data</p>
-              </div>
+              <p className="font-semibold text-lg text-[#00BFFF] border-b-2 border-[#00BFFF] inline-block mb-2">2. Scope of Service</p>
+              <p className="ml-4 text-[11px] font-bold text-[#FF6B00]">
+                2.1 {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 
+                  ? `Our ${data.scopeOfWorkPoints.length} Point Servicing Method Includes But Is Not Limited To:` 
+                  : (data.scopeOfWork || 'Servicing Method Includes But Is Not Limited To:')}
+              </p>
+              {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 && (
+                <div className="ml-8 grid grid-cols-2 gap-x-6 gap-y-1 mt-2 text-xs">
+                  {data.scopeOfWorkPoints.map((pt, i) => (
+                    <p key={i}>
+                      <span className="font-semibold">{String.fromCharCode(97 + i)}.</span> {pt}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -167,22 +165,30 @@ export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContrac
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, index) => (
-                <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                  <td className="py-2 px-3 border-b border-gray-200">{index + 1}</td>
-                  <td className="py-2 px-3 border-b border-gray-200">{item.description}</td>
-                  <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
-                  <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
-                  <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.amount.toLocaleString()}</td>
-                </tr>
-              ))}
+              {data.items.map((item, index) => {
+                const calculatedAmount = (item.qty * item.unit_price) - (item.discount || 0);
+                return (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                    <td className="py-2 px-3 border-b border-gray-200">{index + 1}</td>
+                    <td className="py-2 px-3 border-b border-gray-200">{item.description}</td>
+                    <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
+                    <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
+                    <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {calculatedAmount.toLocaleString()}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 
           <div className="flex justify-between items-start">
             <div className="bg-[#1a1a2e] text-white p-3 rounded">
-              <p className="text-xs"><span className="font-bold">CONTRACT TYPE:</span> {data.contract_type}</p>
-              <p className="text-xs"><span className="font-bold">SCHEDULE:</span> {data.schedule_frequency}</p>
+              <p className="text-xs font-semibold uppercase text-center"><span className="text-gray-400">CONTRACT TYPE:</span><br/><span className="text-[#00BFFF] text-base">{data.contract_type}</span></p>
+            </div>
+            <div className="bg-[#1a1a2e] text-white p-3 rounded">
+              <p className="text-xs font-semibold uppercase text-center"><span className="text-gray-400">SCHEDULE:</span><br/><span className="text-[#FF6B00] text-base">{data.payment_terms === 'Quarterly' ? 'Quarterly' : data.schedule_frequency.split(' ')[0]}</span></p>
+            </div>
+            <div className="bg-[#1a1a2e] text-white p-3 rounded">
+              <p className="text-xs font-semibold uppercase text-center"><span className="text-gray-400">TIMELINE:</span><br/><span className="text-emerald-400 text-base">{data.payment_terms || '1 Day'}</span></p>
             </div>
             <div className="text-right">
               <p className="font-semibold">Subtotal: JMD {data.subtotal.toLocaleString()}</p>
@@ -194,14 +200,20 @@ export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContrac
         </div>
 
         {/* Service Schedule */}
-        <div className="bg-gray-100 p-4 rounded mb-4">
-          <h3 className="font-bold text-gray-800 mb-2">SERVICE SCHEDULE</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            {data.service_schedule.map((schedule, index) => (
-              <p key={index}><span className="font-semibold">{schedule.period}:</span> {schedule.date}</p>
-            ))}
+        <div className="mb-4">
+          <div className="bg-linear-to-r from-[#FF6B00] via-[#8E44AD] to-[#3498DB] px-3 py-1.5 mb-4">
+            <h3 className="font-bold text-white uppercase text-[11px] tracking-wide">SERVICE SCHEDULE</h3>
           </div>
-          <p className="text-xs text-gray-600 mt-2">{data.schedule_frequency}</p>
+          
+          <div className="flex flex-col items-center justify-center space-y-1.5 text-xs">
+            {data.service_schedule.map((schedule, index) => (
+              <p key={index} className="font-bold">
+                <span className="text-[#FF6B00]">{schedule.period}:</span>{' '}
+                <span className="text-[#1a3a5c]">{schedule.date}</span>
+              </p>
+            ))}
+            <p className="font-bold text-[#1a3a5c] mt-2 pt-2">{data.schedule_frequency}</p>
+          </div>
         </div>
 
         {/* Agreement Signatures */}
@@ -240,7 +252,7 @@ export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContrac
 
         {/* Footer */}
         <div className="border-t-4 border-gradient pt-4 text-center">
-          <div className="h-1 bg-gradient-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-4"></div>
+          <div className="h-1 bg-linear-to-r from-[#00BFFF] via-yellow-400 to-[#FF6B00] mb-4"></div>
           <p className="text-xs text-gray-600 font-semibold mb-2">OUR PROFESSIONAL SERVICES</p>
           <p className="text-xs text-gray-500">
             AIR COND./REFRIGERATION: SALES + SERVICE + REPAIR + INSTALLATION | KITCHEN EXHAUST: FABRICATION + MAINTENANCE + REPAIRS

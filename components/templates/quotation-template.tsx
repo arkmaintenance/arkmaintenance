@@ -221,7 +221,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         {/* Items Table */}
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gradient-to-r from-[#00BFFF] via-[#FF6B00] to-[#FF6B00]">
+            <tr className="bg-linear-to-r from-[#00BFFF] via-[#FF6B00] to-[#FF6B00]">
               <th className="text-white text-left py-2 px-3 text-sm">#</th>
               <th className="text-white text-left py-2 px-3 text-sm font-bold">Description</th>
               <th className="text-white text-center py-2 px-3 text-sm">Qty</th>
@@ -338,7 +338,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 <>
                   <p className="font-bold text-[#FF6B00] text-[11px] mb-2">
                     {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 
-                      ? `Our ${data.scopeOfWorkPoints.length} point Servicing Method Includes But Is Not Limited To:` 
+                      ? `Our ${data.scopeOfWorkPoints.length} Point Servicing Method Includes But Is Not Limited To:` 
                       : data.scopeOfWork}
                   </p>
                   {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 ? (

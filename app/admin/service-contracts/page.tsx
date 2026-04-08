@@ -11,6 +11,11 @@ export default async function ServiceContractsPage() {
     .select('*, clients(contact_name, company_name)')
     .order('created_at', { ascending: false })
 
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id, contact_name, company_name, address, city, parish')
+    .order('company_name')
+
   return (
     <div className="flex flex-col">
       <DashboardHeader title="Service Contracts" />
@@ -23,7 +28,7 @@ export default async function ServiceContractsPage() {
             </p>
           </div>
         </div>
-        <ServiceContractsClient contracts={contracts || []} />
+        <ServiceContractsClient contracts={contracts || []} clients={clients || []} />
       </div>
     </div>
   )

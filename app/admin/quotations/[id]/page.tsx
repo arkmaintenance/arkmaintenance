@@ -184,13 +184,18 @@ export default function QuotationPreviewPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { count } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact', head: true })
+    const { data: allInvs } = await supabase.from('invoices').select('invoice_number')
+    const START = 100600
+    let nextNum = START
+    if (allInvs && allInvs.length > 0) {
+      const nums = allInvs
+        .map((r: any) => parseInt(String(r.invoice_number ?? '').replace(/\D/g, ''), 10))
+        .filter((n: number) => !isNaN(n) && n >= START)
+      if (nums.length > 0) nextNum = Math.max(...nums) + 1
+    }
+    const invoiceNumber = `INV-${nextNum}`
 
-    const invoiceNumber = `INV-${String((count || 0) + 100001).padStart(6, '0')}`
-
-    const { error } = await supabase
+    const { data: newInvoice, error } = await supabase
       .from('invoices')
       .insert({
         user_id: user.id,
@@ -207,6 +212,8 @@ export default function QuotationPreviewPage() {
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         notes: quotation.notes
       })
+      .select('id')
+      .single()
 
     if (error) {
       toast.error('Failed to convert to invoice')
@@ -214,7 +221,7 @@ export default function QuotationPreviewPage() {
     }
 
     toast.success('Quotation converted to invoice')
-    router.push('/admin/invoices')
+    router.push(`/admin/invoices/${newInvoice.id}`)
   }
 
   if (loading) {

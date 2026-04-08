@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Search, Eye, Download, Copy, Pencil, Trash2, Plus, RefreshCw, DollarSign, FileCheck } from 'lucide-react'
+import { AddServiceContractDialog } from './add-service-contract-dialog'
 
 interface Contract {
   id: string
@@ -35,6 +36,7 @@ interface Contract {
 
 interface ServiceContractsClientProps {
   contracts: Contract[]
+  clients: any[]
 }
 
 const statusColors: Record<string, string> = {
@@ -47,7 +49,7 @@ const statusColors: Record<string, string> = {
 
 const FILTER_TABS = ['All', 'Active', 'Pending', 'Completed', 'Expired', 'Cancelled']
 
-export function ServiceContractsClient({ contracts }: ServiceContractsClientProps) {
+export function ServiceContractsClient({ contracts, clients }: ServiceContractsClientProps) {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
   const router = useRouter()
@@ -134,10 +136,7 @@ export function ServiceContractsClient({ contracts }: ServiceContractsClientProp
             className="pl-9 bg-input border-border text-foreground"
           />
         </div>
-        <Button className="bg-[#00BFFF] hover:bg-[#00BFFF]/90 text-black font-semibold">
-          <Plus className="mr-2 h-4 w-4" />
-          New Contract
-        </Button>
+        <AddServiceContractDialog clients={clients} />
       </div>
 
       {/* Table */}

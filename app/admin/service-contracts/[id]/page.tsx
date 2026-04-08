@@ -132,6 +132,16 @@ export default function ServiceContractPreviewPage() {
     return schedules
   }
 
+  let parsedNotes: any = {}
+  try {
+    if (contract.notes) {
+      parsedNotes = typeof contract.notes === 'string' ? JSON.parse(contract.notes) : contract.notes
+    }
+  } catch (e) {}
+
+  const contractItems = (contract as any).items || []
+  const subtotal = contractItems.reduce((acc: number, item: any) => acc + (item.quantity * item.unit_price) - (item.discount || 0), 0)
+
   const contractData = {
     contract_number: contract.contract_number,
     date: new Date(contract.created_at).toLocaleDateString('en-US', {
@@ -139,7 +149,7 @@ export default function ServiceContractPreviewPage() {
       month: 'long',
       day: 'numeric'
     }),
-    payment_terms: 'As per agreement',
+    payment_terms: parsedNotes.payment_terms || 'As per agreement',
     service_description: contract.title || 'PREDICTIVE MAINTENANCE SERVICE CONTRACT FOR AIR CONDITIONER MAINTENANCE',
     contract_type: 'SERVICE CONTRACT',
     schedule_frequency: contract.billing_frequency === 'quarterly' 
@@ -148,24 +158,27 @@ export default function ServiceContractPreviewPage() {
       ? 'Monthly (12 Times Yearly)'
       : 'Bi-Annually (2 Times Yearly)',
     client: {
-      name: contract.clients?.contact_name || 'Client',
+      name: parsedNotes.contact_person || contract.clients?.contact_name || 'Client',
       company: contract.clients?.company_name || '',
-      address: contract.clients?.address || '',
+      address: parsedNotes.address || contract.clients?.address || '',
       city: contract.clients?.city || ''
     },
-    items: [
-      {
-        description: contract.description || 'General Servicing of Air Conditioners',
-        qty: 1,
-        unit_price: Number(contract.amount),
-        amount: Number(contract.amount)
-      }
-    ],
-    subtotal: Number(contract.amount),
-    total: Number(contract.amount),
+    items: contractItems.map((item: any) => ({
+      description: item.description,
+      qty: item.quantity,
+      unit_price: item.unit_price,
+      discount: item.discount || 0,
+      amount: (item.quantity * item.unit_price) - (item.discount || 0)
+    })),
+    subtotal: subtotal,
+    total: subtotal,
     service_schedule: generateServiceSchedule(),
-    ark_representative: 'Suzanne Gordon',
-    ark_position: 'Director'
+    ark_representative: parsedNotes.ark_representative || 'Suzanne Gordon',
+    ark_position: parsedNotes.ark_position || 'Director',
+    customer_representative: parsedNotes.customer_representative || '',
+    customer_position: parsedNotes.customer_position || '',
+    scopeOfWork: parsedNotes.scope_of_work,
+    scopeOfWorkPoints: parsedNotes.scope_of_work_points
   }
 
   return (
