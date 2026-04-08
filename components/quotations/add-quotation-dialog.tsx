@@ -140,6 +140,79 @@ const Combobox = forwardRef<HTMLInputElement, {
 })
 
 
+// ─── Scope of Work Data ──────────────────────────────────────────────────────
+
+const SCOPE_OF_WORK_OPTIONS: Record<string, string[]> = {
+  'AC': [
+    'Cleaning of Evaporator, Evaporator Coils and Evaporator Fan Motor.',
+    'Cleaning of Condenser Fan Motor, Condenser Coils, Fan Blades and Motor.',
+    'Cleaning and Treating of Drain Pan and Drain Line.',
+    'Cleaning and Treating of Air Filters.',
+    'Straightening of Evaporator and Condenser Coil Fins.',
+    'Checking Refrigerant (Freon) levels for adequate cooling.',
+    'Checking Superheat and Subcooling.',
+    'Checking the Compressor Amp draw.',
+    'Checking the Indoor & Outdoor Fan Motor Amp draw.',
+    'Checking Electrical Components.',
+    'Checking Thermostat for Proper Operation.',
+    'Checking for Refrigerant Leaks.',
+    'Checking & Testing the Capacitor.',
+    'Checking the Contactor.',
+    'Inspecting Overall Operation of Unit.',
+    'Recording all findings and Maintenance data for future reference.',
+  ],
+  'Ice Machine': [
+  'Safety & Power Shutdown',
+  'Ice Disposal & Bin Emptying',
+  'Disassembly of Water Components',
+  'Cleaning/Descaling Evaporator',
+  'Cleaning/Descaling Water Circuit',
+  'Sanitizing Food-Zone Parts',
+  'Water Filter Replacement',
+  'Inlet Screen Cleaning',
+  'Condenser Coil Cleaning',
+  'Water Pump Inspection',
+  'Fan Motor Check',
+  'Electrical Connection Check',
+  'Lubrication of Moving Parts',
+  'Reassembly & Rinse Cycle',
+  'Operational Performance Check',
+  'Service Report ',
+  ],
+  'Exhaust System': [
+    'Site Inspection and Pre-Service Assessment',
+    'System Power Isolation and Lockout/Tagout (LOTO)',
+    'Protective Covering of Cooking Appliances and Surrounding Areas',
+    'Removal and Soaking of Baffle/Mesh Filters',
+    'Degreasing and Cleaning of Hood Interior Plenum',
+    'Scraping and Scrubbing of Accessible Ductwork',
+    'Installation of New Access Panels (If Necessary)',
+    'Cleaning of Roof-Mounted or Wall-Mounted Exhaust Fan',
+    'Inspection of Fan Belt Tension and Condition',
+    'System Reassembly and Final Wipe-Down',
+    'System Functionality Test (Fan Start-up)',
+    'Final System Testing, Documentation, and Reporting',
+  ],
+  'Refrigeration Equipment': [
+    'Safety Protocol and Lockout/Tagout Implementation',
+    'Initial System Operation and Performance Audit',
+    'Condenser Coil Cleaning and Airflow Inspection',
+    'Evaporator Coil Inspection and Cleaning',
+    'Refrigerant Level and Charge Verification',
+    'Refrigerant System Leak Testing',
+    'Compressor Oil Level and Pressure Check',
+    'Electrical Component Inspection and Tightening',
+    'Contactors and Relay Inspection',
+    'Fan Motor and Blade Inspection/Lubrication',
+    'Defrost Cycle and Timer Verification',
+    'Drain Pan and Drain Line Cleaning',
+    'Door Gasket and Hinge Inspection',
+    'Temperature Control and Thermostat Calibration',
+    'Suction Line Insulation Inspection',
+    'Final System Testing, Documentation, and Reporting',
+  ],
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Client { id: string; contact_name: string; company_name: string | null; address?: string; city?: string; parish?: string; trn?: string }
@@ -282,7 +355,7 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
     if (!user) { toast.error('Not logged in'); setLoading(false); return }
 
     const clientRecord = clients.find(c => c.company_name === selectedCompany)
-    const { error } = await supabase.from('quotations').insert({
+    const { data: newQuote, error } = await supabase.from('quotations').insert({
       user_id: user.id,
       quote_number: quoteNumber,
       title: serviceDescription,
@@ -294,13 +367,13 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
       total: totalAmount,
       status,
       valid_until: validUntil || null,
-      notes: JSON.stringify({ contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, job_timeline: jobTimeline, is_service_contract: isServiceContract, recurring_schedule: recurringSchedule, scope_of_work: scopeOfWork, notes }),
-    })
+      notes: JSON.stringify({ contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, job_timeline: jobTimeline, is_service_contract: isServiceContract, recurring_schedule: recurringSchedule, scope_of_work: scopeOfWork, scope_of_work_points: SCOPE_OF_WORK_OPTIONS[scopeOfWork] ?? [], notes }),
+    }).select('id').single()
     if (error) { toast.error('Failed to create quotation'); setLoading(false); return }
     toast.success('Quotation created')
     setOpen(false)
     setLoading(false)
-    router.refresh()
+    router.push(`/admin/quotations/${newQuote.id}`)
   }
 
   return (
@@ -539,7 +612,26 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
           {/* Scope of Work */}
           <div className="space-y-1">
             <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Scope of Work</Label>
-            <Textarea value={scopeOfWork} onChange={e => setScopeOfWork(e.target.value)} placeholder="Scope of work..." className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[60px]" />
+            <Select value={scopeOfWork} onValueChange={setScopeOfWork}>
+              <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white">
+                <SelectValue placeholder="Select scope of work..." />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                {Object.keys(SCOPE_OF_WORK_OPTIONS).map(key => (
+                  <SelectItem key={key} value={key} className="text-white">
+                    <div className="flex flex-col">
+                      <span>{key}</span>
+                      <span className="text-[10px] text-gray-500">{SCOPE_OF_WORK_OPTIONS[key].length} points</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {scopeOfWork && (
+              <p className="text-[10px] text-[#FF6B00] mt-1">
+                {SCOPE_OF_WORK_OPTIONS[scopeOfWork]?.length ?? 0} points will be included in the quotation
+              </p>
+            )}
           </div>
 
           {/* Valid Until + Status */}

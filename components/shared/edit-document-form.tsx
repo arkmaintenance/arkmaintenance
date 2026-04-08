@@ -46,6 +46,7 @@ export interface EditFormValues {
   isServiceContract: boolean
   recurringSchedule: string
   scopeOfWork: string
+  scopeOfWorkPoints: string[]
   scopeTemplate: string       // which checklist template key
   validUntil: string
   issuedDate: string          // YYYY-MM-DD
@@ -490,6 +491,7 @@ export function EditDocumentForm({
   const [isServiceContract, setIsServiceContract] = useState(initialValues.isServiceContract)
   const [recurringSchedule, setRecurringSchedule] = useState(initialValues.recurringSchedule)
   const [scopeOfWork, setScopeOfWork] = useState(initialValues.scopeOfWork)
+  const [scopeOfWorkPoints, setScopeOfWorkPoints] = useState(initialValues.scopeOfWorkPoints || [])
   const [scopeTemplate, setScopeTemplate] = useState(initialValues.scopeTemplate || '')
   const [validUntil, setValidUntil] = useState(initialValues.validUntil)
   const [issuedDate, setIssuedDate] = useState(initialValues.issuedDate || '')
@@ -510,15 +512,15 @@ export function EditDocumentForm({
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         setClients(clientData)
-        const compNames = [...new Set(clientData.map(c => String(c.company_name || c.contact_name || '')).filter(Boolean))]
+        const compNames = [...new Set(clientData.map((c: any) => String(c.company_name || c.contact_name || '')).filter(Boolean))] as string[]
         setCompanyNames(compNames)
         // Pre-filter contact names by already-selected company if one is set
         const preSelectedCompany = initialValues.selectedClientId
         const relevantClients = preSelectedCompany
-          ? clientData.filter(c => c.company_name === preSelectedCompany)
+          ? clientData.filter((c: any) => c.company_name === preSelectedCompany)
           : clientData
-        setContactNames([...new Set(relevantClients.map(c => c.contact_name).filter(Boolean))])
-        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+        setContactNames([...new Set(relevantClients.map((c: any) => c.contact_name).filter(Boolean))] as string[])
+        setAddresses([...new Set(clientData.map((c: any) => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))] as string[])
       }
 
       // Load unique job titles from quotations + invoices
@@ -552,8 +554,8 @@ export function EditDocumentForm({
         .order('category')
         .order('name')
       if (svcData && svcData.length > 0) {
-        setServiceOptions(svcData.map(s => ({ name: s.name, description: s.description || '', base_price: Number(s.base_price) })))
-        const svcNames = svcData.map(s => s.name)
+        setServiceOptions(svcData.map((s: any) => ({ name: s.name, description: s.description || '', base_price: Number(s.base_price) })))
+        const svcNames = svcData.map((s: any) => s.name)
         setLineDescriptions(prev => {
           const combined = [...new Set([...svcNames, ...prev])]
           return combined
@@ -621,7 +623,7 @@ export function EditDocumentForm({
   const currentValues: EditFormValues = {
     title, contactPerson, serviceLocation, address, paymentTerms, paymentMethod,
     poNumber, trn, timeline, isServiceContract, recurringSchedule,
-    scopeOfWork, scopeTemplate, validUntil, issuedDate, dueDate, status, notes, items, selectedClientId,
+    scopeOfWork, scopeOfWorkPoints, scopeTemplate, validUntil, issuedDate, dueDate, status, notes, items, selectedClientId,
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────

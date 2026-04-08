@@ -272,7 +272,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
     if (!user) { toast.error('Not logged in'); setLoading(false); return }
 
     const clientRecord = clients.find(c => c.company_name === selectedCompany)
-    const { error } = await supabase.from('invoices').insert({
+    const { data: newInvoice, error } = await supabase.from('invoices').insert({
       user_id: user.id,
       invoice_number: invoiceNumber,
       title: serviceDescription,
@@ -286,12 +286,12 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
       status: 'draft',
       issued_date: invoiceDate,
       notes: JSON.stringify({ contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, notes }),
-    })
+    }).select('id').single()
     if (error) { toast.error('Failed to create invoice'); setLoading(false); return }
     toast.success('Invoice created')
     setOpen(false)
     setLoading(false)
-    router.refresh()
+    router.push(`/admin/invoices/${newInvoice.id}`)
   }
 
   return (

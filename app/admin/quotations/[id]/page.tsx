@@ -89,7 +89,7 @@ export default function QuotationPreviewPage() {
         qty: item.qty || item.quantity || 1,
         unit_price: item.unit_price || item.rate || 0,
         discount: item.discount || 0,
-        amount: item.amount || 0
+        amount: item.amount || item.total || (item.unit_price || item.rate || 0) * (item.qty || item.quantity || 1) - (item.discount || 0)
       }))
       let parsedNotes: any = {}
       try { parsedNotes = typeof data.notes === 'string' ? JSON.parse(data.notes) : {} } catch {}
@@ -106,6 +106,7 @@ export default function QuotationPreviewPage() {
         poNumber: parsedNotes.po_number || '',
         trn: parsedNotes.trn || '',
         scopeOfWork: parsedNotes.scope_of_work || '',
+        scopeOfWorkPoints: parsedNotes.scope_of_work_points || [],
         scopeTemplate: parsedNotes.scope_template || '',
         isServiceContract: parsedNotes.is_service_contract || false,
         recurringSchedule: parsedNotes.recurring_schedule || 'one-time',
@@ -246,6 +247,7 @@ export default function QuotationPreviewPage() {
     recurringSchedule: activeValues?.recurringSchedule || 'one-time',
     scopeTemplate: activeValues?.scopeTemplate || '',
     scopeOfWork: activeValues?.scopeOfWork || '',
+    scopeOfWorkPoints: (activeValues as any)?.scopeOfWorkPoints || [],
     client: {
       name: activeValues?.contactPerson || quotation.clients?.contact_name || 'Client',
       company: quotation.clients?.company_name || '',

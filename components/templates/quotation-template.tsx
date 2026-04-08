@@ -22,6 +22,7 @@ interface QuotationData {
   recurringSchedule?: string
   scopeTemplate?: string
   scopeOfWork?: string
+  scopeOfWorkPoints?: string[]
   client: {
     name: string
     company: string
@@ -135,11 +136,18 @@ const SCOPE_TEMPLATES: Record<string, { title: string; intro: string; points: st
 
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ data }, ref) => {
-    const hasDiscountColumn = data.items.some(item => item.discount && !item.section)
+    const hasDiscountColumn = data.items.some((item: any) => item.discount && !item.section)
     const minimumVisibleRows = 6
     const lineItems = data.items.filter(it => it.section === undefined)
     const fillerCount = Math.max(0, minimumVisibleRows - data.items.length)
     const fillerRows = Array.from({ length: fillerCount })
+    
+    const calculateLineTotal = (item: QuotationItem) => 
+      (Number(item.qty) || 1) * (Number(item.unit_price) || 0) - (Number(item.discount) || 0)
+      
+    const calculatedSubtotal = data.items.reduce((sum, item) => 
+      sum + (item.section ? 0 : calculateLineTotal(item)), 0)
+    const calculatedTotal = calculatedSubtotal
 
     const bankingDetails = [
       { label: 'Bank', value: 'First Global Bank' },
@@ -238,13 +246,13 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                   <td className="py-2 px-3 border-b border-gray-200">{lineItems.indexOf(item) + 1}</td>
                   <td className="py-2 px-3 border-b border-gray-200 font-bold text-[13px]">{item.description}</td>
                   <td className="py-2 px-3 border-b border-gray-200 text-center">{item.qty}</td>
-                  <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {item.unit_price.toLocaleString()}</td>
+                  <td className="py-2 px-3 border-b border-gray-200 text-right">JMD {Number(item.unit_price || 0).toLocaleString()}</td>
                   {hasDiscountColumn && (
                     <td className="py-2 px-3 border-b border-gray-200 text-right text-red-500">
-                      {item.discount ? `JMD ${item.discount.toLocaleString()}` : ''}
+                      {item.discount ? `JMD ${Number(item.discount).toLocaleString()}` : ''}
                     </td>
                   )}
-                  <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {item.amount.toLocaleString()}</td>
+                  <td className="py-2 px-3 border-b border-gray-200 text-right font-bold text-[#FF6B00]">JMD {calculateLineTotal(item).toLocaleString()}</td>
                 </tr>
               )
             )}
@@ -270,11 +278,11 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             <div className="w-64">
               <div className="flex justify-between py-1.5 border-b border-gray-200">
                 <span className="text-[18px] font-extrabold text-black">Subtotal:</span>
-                <span className="text-[18px] font-extrabold text-black">JMD {data.subtotal.toLocaleString()}</span>
+                <span className="text-[18px] font-extrabold text-black">JMD {calculatedSubtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-1.5">
                 <span className="text-[18px] font-extrabold text-[#FF6B00]">Total:</span>
-                <span className="text-[18px] font-extrabold text-[#FF6B00]">JMD {data.total.toLocaleString()}</span>
+                <span className="text-[18px] font-extrabold text-[#FF6B00]">JMD {calculatedTotal.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -326,8 +334,34 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                   </div>
                 </>
               )}
-              {data.scopeOfWork && (
-                <p className="text-[10.5px] text-gray-700 mt-2 leading-snug whitespace-pre-line">{data.scopeOfWork}</p>
+              {data.scopeOfWork && !scopeDef && (
+                <>
+                  <p className="font-bold text-[#FF6B00] text-[11px] mb-2">
+                    {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 
+                      ? `Our ${data.scopeOfWorkPoints.length} point Servicing Method Includes But Is Not Limited To:` 
+                      : data.scopeOfWork}
+                  </p>
+                  {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-x-6">
+                      <ol className="list-none space-y-0.5">
+                        {data.scopeOfWorkPoints.slice(0, Math.ceil(data.scopeOfWorkPoints.length / 2)).map((pt, i) => (
+                          <li key={i} className="text-[10.5px] text-gray-700 leading-snug">
+                            <span className="font-semibold">{i + 1}.</span> {pt}
+                          </li>
+                        ))}
+                      </ol>
+                      <ol className="list-none space-y-0.5">
+                        {data.scopeOfWorkPoints.slice(Math.ceil(data.scopeOfWorkPoints.length / 2)).map((pt, i) => (
+                          <li key={i} className="text-[10.5px] text-gray-700 leading-snug">
+                            <span className="font-semibold">{i + Math.ceil((data.scopeOfWorkPoints?.length || 0) / 2) + 1}.</span> {pt}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : (
+                    <p className="text-[10.5px] text-gray-700 leading-snug whitespace-pre-line">{data.scopeOfWork}</p>
+                  )}
+                </>
               )}
             </div>
           )}
