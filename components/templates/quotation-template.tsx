@@ -336,7 +336,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               )}
               {data.scopeOfWork && !scopeDef && (
                 <>
-                  <p className="font-bold text-[#FF6B00] text-[11px] mb-2">
+                  <p className="font-extrabold text-[#FF6B00] text-[11px] mb-2">
                     {data.scopeOfWorkPoints && data.scopeOfWorkPoints.length > 0 
                       ? `Our ${data.scopeOfWorkPoints.length} Point Servicing Method Includes But Is Not Limited To:` 
                       : data.scopeOfWork}
