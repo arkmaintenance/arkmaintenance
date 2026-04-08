@@ -14,7 +14,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
 
-// ─── Inline Combobox (portal-based) ──────────────────────────────────────────
+// ─── Inline Combobox (portal-based, sort-to-top) ─────────────────────────────
+
+function sortOptions(options: string[], query: string, selected: string): { opt: string; isMatch: boolean }[] {
+  if (!query.trim() && !selected) return options.map(o => ({ opt: o, isMatch: false }))
+  const q = query.trim().toLowerCase()
+  const scored = options.map(o => {
+    const lower = o.toLowerCase()
+    let score = 0
+    if (selected && o === selected) score += 1000
+    if (q) {
+      if (lower.startsWith(q)) score += 100
+      else if (lower.includes(q)) score += 50
+    }
+    return { opt: o, score, isMatch: q ? lower.includes(q) : o === selected }
+  })
+  return scored.sort((a, b) => b.score - a.score)
+}
 
 const Combobox = forwardRef<HTMLInputElement, {
   value: string
@@ -57,33 +73,52 @@ const Combobox = forwardRef<HTMLInputElement, {
     }
   }, [open, options.length])
 
-  const filtered = query.trim() === '' ? options : options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+  // Sort: matches/selected float to top, all others remain below
+  const sorted = sortOptions(options, query, value)
 
-  const dropdown = open && (filtered.length > 0 ? (
-    <div ref={dropRef}
-      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto pointer-events-auto">
-      {filtered.map((opt, i) => (
-        <button key={i} type="button"
-          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate cursor-pointer"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onChange(opt)
-            setQuery(opt)
-            setOpen(false)
-          }}>
-          {opt}
-        </button>
-      ))}
-    </div>
-  ) : (
-    <div ref={dropRef}
-      style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
-      {options.length === 0 ? 'Loading records...' : 'No matches found'}
-    </div>
-  ))
+  const dropdown = open && (
+    options.length === 0 ? (
+      <div ref={dropRef}
+        style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+        className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm pointer-events-auto">
+        Loading records...
+      </div>
+    ) : (
+      <div ref={dropRef}
+        style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+        className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-56 overflow-y-auto pointer-events-auto">
+        {sorted.map(({ opt, isMatch }, i) => (
+          <button key={i} type="button"
+            className={[
+              'w-full text-left px-3 py-2 text-sm truncate cursor-pointer transition-colors',
+              opt === value
+                ? 'bg-[#FF6B00]/25 text-white font-semibold border-l-2 border-[#FF6B00]'
+                : isMatch
+                ? 'text-white hover:bg-[#FF6B00]/20'
+                : 'text-gray-400 hover:bg-[#2a2a4a] hover:text-gray-200'
+            ].join(' ')}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onChange(opt)
+              setQuery(opt)
+              setOpen(false)
+            }}>
+            {isMatch && query.trim() ? (() => {
+              const q = query.trim()
+              const idx = opt.toLowerCase().indexOf(q.toLowerCase())
+              if (idx === -1) return opt
+              return <>
+                {opt.slice(0, idx)}
+                <span className="text-[#FF6B00] font-bold">{opt.slice(idx, idx + q.length)}</span>
+                {opt.slice(idx + q.length)}
+              </>
+            })() : opt}
+          </button>
+        ))}
+      </div>
+    )
+  )
 
   return (
     <div ref={containerRef} className="relative flex-1">
@@ -103,6 +138,7 @@ const Combobox = forwardRef<HTMLInputElement, {
     </div>
   )
 })
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
