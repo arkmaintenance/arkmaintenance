@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
 
 // ─── Inline Combobox (portal-based, sort-to-top) ─────────────────────────────
 
@@ -181,6 +182,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
   ])
   const [notes, setNotes] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('INV-100600')
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   // Load full clients + services from DB when dialog opens
   useEffect(() => {
@@ -238,6 +240,21 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
       // Note: TRN is not currently in the clients table, so it remains a manual field for now
       setContactNames([...new Set(matching.map(c => c.contact_name).filter(Boolean) as string[])])
     }
+  }
+
+  const handleQuickAddSuccess = (newClient: any) => {
+    setClients(prev => [...prev, newClient])
+    const newName = newClient.company_name || newClient.contact_name || ''
+    setCompanyNames(prev => [...new Set([...prev, newName])])
+    setContactNames(prev => [...new Set([...prev, newClient.contact_name || ''])])
+    const newAddr = [newClient.address, newClient.city, newClient.parish].filter(Boolean).join(', ')
+    setAddresses(prev => [...new Set([...prev, newAddr])])
+    
+    // Auto-select
+    setSelectedCompany(newName)
+    setContactPerson(newClient.contact_name || '')
+    setAddress(newAddr)
+    if (newClient.parish) setServiceLocation(newClient.parish)
   }
 
   const calcTotal = (item: LineItem) => item.quantity * item.unit_price - item.discount
@@ -326,8 +343,9 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
                   options={companyNames}
                   placeholder="Select or type company..."
                 />
-                <button type="button" onClick={() => setSelectedCompany('')}
-                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                <button type="button" onClick={() => setQuickAddOpen(true)}
+                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
+                  title="Add New Client">
                   <Plus className="h-3.5 w-3.5" />
                 </button>
                 <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setAddress(''); setTrn('') }}
@@ -400,7 +418,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[#E91E63] text-xs font-semibold uppercase tracking-wider">TRN</Label>
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">TRN</Label>
               <div className="flex gap-1 items-center">
                 <Input value={trn} onChange={e => setTrn(e.target.value)} placeholder="TRN" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
                 <button type="button" onClick={() => setTrn('')}
@@ -513,6 +531,11 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
           </div>
         </form>
       </DialogContent>
+      <QuickAddClientDialog 
+        open={quickAddOpen} 
+        onOpenChange={setQuickAddOpen}
+        onSuccess={handleQuickAddSuccess}
+      />
     </Dialog>
   )
 }

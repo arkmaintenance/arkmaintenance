@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Minus, Trash2, Save, X, ChevronDown, Layers, Calendar } from 'lucide-react'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
 
 // ─── Types (v2) ───────────────────────────────────────────────────────────────
 
@@ -500,6 +501,7 @@ export function EditDocumentForm({
   const [notes, setNotes] = useState(initialValues.notes)
   const [items, setItems] = useState<DocItem[]>(initialValues.items)
   const [selectedClientId, setSelectedClientId] = useState(initialValues.selectedClientId)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   // ── Load DB options on mount ────────────────────────────────────────────────
   useEffect(() => {
@@ -583,6 +585,21 @@ export function EditDocumentForm({
     }
   }
 
+  const handleQuickAddSuccess = (newClient: any) => {
+    setClients(prev => [...prev, newClient])
+    const newName = newClient.company_name || newClient.contact_name || ''
+    setCompanyNames(prev => [...new Set([...prev, newName])])
+    setContactNames(prev => [...new Set([...prev, newClient.contact_name || ''])])
+    const newAddr = [newClient.address, newClient.city, newClient.parish].filter(Boolean).join(', ')
+    setAddresses(prev => [...new Set([...prev, newAddr])])
+    
+    // Auto-select
+    setSelectedClientId(newName)
+    setContactPerson(newClient.contact_name || '')
+    setAddress(newAddr)
+    if (newClient.parish) setServiceLocation(newClient.parish)
+  }
+
   // ── Item helpers ────────────────────────────────────────────────────────────
   const recalc = (item: DocItem): DocItem => ({
     ...item,
@@ -661,8 +678,8 @@ export function EditDocumentForm({
               options={companyNames}
               placeholder="Select or type company..."
             />
-            <button type="button" title="Open list"
-              onClick={() => { setSelectedClientId('') }}
+            <button type="button" title="Add New Client"
+              onClick={() => { setQuickAddOpen(true) }}
               className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -1018,6 +1035,11 @@ export function EditDocumentForm({
           <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
+      <QuickAddClientDialog 
+        open={quickAddOpen} 
+        onOpenChange={setQuickAddOpen}
+        onSuccess={handleQuickAddSuccess}
+      />
     </div>
   )
 }
