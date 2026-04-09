@@ -275,7 +275,7 @@ export default function QuotationPreviewPage() {
       const dateStr = new Date(quotation.created_at).toISOString().split('T')[0]
       const clientName = quotation.clients?.company_name || quotation.clients?.contact_name || 'Client'
       const jobDesc = quotation.title || ''
-      const safeFileName = `${quotation.quote_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+      const safeFileName = `Quote-${quotation.quote_number}${jobDesc ? `-${jobDesc}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadQuotationPdf(quotationData, safeFileName)
       toast.success('Quotation PDF downloaded')

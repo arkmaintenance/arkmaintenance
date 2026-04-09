@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF using React PDF
     const pdfBuffer = await renderToBuffer(
-      React.createElement(QuotationPdfDocument, { data: safeQuotationData })
+      React.createElement(QuotationPdfDocument, { data: safeQuotationData }) as any
     )
 
     // Convert to base64

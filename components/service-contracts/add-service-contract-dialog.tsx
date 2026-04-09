@@ -247,16 +247,16 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
   const [contactPerson, setContactPerson] = useState('')
   const [serviceLocation, setServiceLocation] = useState('')
   const [address, setAddress] = useState('')
-  const [paymentTerms, setPaymentTerms] = useState('COD')
+  const [paymentTerms, setPaymentTerms] = useState('7 Days')
   const [poNumber, setPoNumber] = useState('')
   const [trn, setTrn] = useState('')
   const [serviceDescription, setServiceDescription] = useState('')
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: '1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }
   ])
-  const [jobTimeline, setJobTimeline] = useState('')
-  const [isServiceContract, setIsServiceContract] = useState(false)
-  const [recurringSchedule, setRecurringSchedule] = useState('one-time')
+  const [jobTimeline, setJobTimeline] = useState('3 Days')
+  const [isServiceContract, setIsServiceContract] = useState(true)
+  const [recurringSchedule, setRecurringSchedule] = useState('quarterly')
   const [scopeOfWork, setScopeOfWork] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [status, setStatus] = useState('pending')
@@ -553,12 +553,12 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
 
           {/* Service Description */}
           <div className="space-y-1">
-            <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Service Description (Job Title)</Label>
+            <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Contract Title / Service Description</Label>
             <div className="flex gap-1 items-center">
-              <Combobox value={serviceDescription} onChange={setServiceDescription} options={jobTitles} placeholder="Type or select service description..." />
+              <Combobox value={serviceDescription} onChange={setServiceDescription} options={jobTitles} placeholder="Type the contract heading exactly as it should appear on the PDF..." />
               <button type="button" onClick={() => setServiceDescription('')}
                 className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                <Minus className="h-3.5 w-3.5" />
+                  <Minus className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -657,7 +657,7 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
               <Select value={recurringSchedule} onValueChange={setRecurringSchedule}>
                 <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
-                  {['one-time','weekly','bi-weekly','monthly','quarterly','semi-annual','annual'].map(v => (
+                  {['monthly','quarterly','semi-annual','annual'].map(v => (
                     <SelectItem key={v} value={v} className="text-white capitalize">{v.replace('-', ' ')}</SelectItem>
                   ))}
                 </SelectContent>
@@ -666,9 +666,14 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
           </div>
 
           {/* Service Contract toggle */}
-          <div className="flex items-center gap-3 py-1">
-            <Switch checked={isServiceContract} onCheckedChange={setIsServiceContract} className="data-[state=checked]:bg-[#00BCD4]" />
-            <Label className="text-gray-300 text-sm font-medium">Service Contract</Label>
+          <div className="rounded-lg border border-[#00BCD4]/25 bg-[#00BCD4]/8 px-3 py-2">
+            <div className="flex items-center gap-3">
+              <Switch checked={isServiceContract} onCheckedChange={setIsServiceContract} className="data-[state=checked]:bg-[#00BCD4]" />
+              <Label className="text-gray-200 text-sm font-medium">Service contract PDF layout enabled</Label>
+            </div>
+            <p className="mt-1 text-[11px] text-gray-400">
+              Keep this on to generate the 4-page service-contract PDF with terms, pricing, schedule, signatures, and banking details.
+            </p>
           </div>
 
           {/* Scope of Work */}
@@ -716,15 +721,29 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
           </div>
 
           {/* Schedule Preview */}
-          {validUntil && recurringSchedule !== 'one-time' && (
+          {validUntil && (
             <div className="bg-[#00BCD4]/5 border border-[#00BCD4]/20 rounded-lg p-3 space-y-2">
               <Label className="text-[#00BCD4] text-[10px] uppercase font-bold">Planned Service Schedule Preview</Label>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
                 {(() => {
                   const d = new Date(validUntil);
                   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                  const count = recurringSchedule === 'monthly' ? 12 : recurringSchedule === 'quarterly' ? 4 : 2;
-                  const step = recurringSchedule === 'monthly' ? 1 : recurringSchedule === 'quarterly' ? 3 : 6;
+                  const count =
+                    recurringSchedule === 'monthly'
+                      ? 12
+                      : recurringSchedule === 'quarterly'
+                      ? 4
+                      : recurringSchedule === 'semi-annual'
+                      ? 2
+                      : 1;
+                  const step =
+                    recurringSchedule === 'monthly'
+                      ? 1
+                      : recurringSchedule === 'quarterly'
+                      ? 3
+                      : recurringSchedule === 'semi-annual'
+                      ? 6
+                      : 12;
                   return Array.from({length: count}).map((_, i) => {
                     const sd = new Date(d);
                     sd.setMonth(d.getMonth() + (i * step));

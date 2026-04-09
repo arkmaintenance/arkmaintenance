@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { downloadServiceContractPdf } from '@/lib/client-pdf-download'
+import { buildServiceContractPdfData } from '@/lib/service-contracts/pdf-data'
 import {
   Table,
   TableBody,
@@ -52,6 +54,7 @@ const FILTER_TABS = ['All', 'Active', 'Pending', 'Completed', 'Expired', 'Cancel
 export function ServiceContractsClient({ contracts, clients }: ServiceContractsClientProps) {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -73,6 +76,39 @@ export function ServiceContractsClient({ contracts, clients }: ServiceContractsC
     const { error } = await supabase.from('service_contracts').delete().eq('id', id)
     if (error) { toast.error('Failed to delete contract'); return }
     toast.success('Contract deleted'); router.refresh()
+  }
+
+  async function handleDownload(id: string) {
+    setDownloadingId(id)
+
+    try {
+      const { data, error } = await supabase
+        .from('service_contracts')
+        .select(`
+          *,
+          clients (
+            contact_name,
+            company_name,
+            address,
+            city,
+            parish
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Failed to load contract data')
+      }
+
+      const pdfData = buildServiceContractPdfData(data as any)
+      await downloadServiceContractPdf(pdfData, `Service-Contract-${pdfData.contract_number}.pdf`)
+      toast.success('Service contract PDF downloaded')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download service contract PDF')
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   return (
@@ -219,6 +255,8 @@ export function ServiceContractsClient({ contracts, clients }: ServiceContractsC
                             variant="ghost" size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
                             title="Download"
+                            onClick={() => handleDownload(contract.id)}
+                            disabled={downloadingId === contract.id}
                           >
                             <Download className="h-3.5 w-3.5" />
                           </Button>
@@ -233,6 +271,7 @@ export function ServiceContractsClient({ contracts, clients }: ServiceContractsC
                             variant="ghost" size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
                             title="Edit"
+                            onClick={() => router.push(`/admin/service-contracts/${contract.id}?edit=1`)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>

@@ -1,15 +1,30 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ServiceContractTemplate } from '@/components/templates/service-contract-template'
+import {
+  downloadServiceContractPdf,
+  generateServiceContractPdf,
+  printServiceContractPdf,
+} from '@/lib/client-pdf-download'
+import { buildServiceContractPdfData } from '@/lib/service-contracts/pdf-data'
+import { EditServiceContractForm } from '@/components/service-contracts/edit-service-contract-form'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Printer, Download, Send } from 'lucide-react'
+import {
+  buildServiceContractFormValues,
+  buildServiceContractNotesPayload,
+  ServiceContractClientOption,
+  ServiceContractFormValues,
+  calculateServiceContractTotal,
+  computeServiceContractEndDate,
+} from '@/lib/service-contracts/form-data'
+import { ArrowLeft, Printer, Download, Pencil, Send } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface ServiceContract {
   id: string
+  client_id: string | null
   contract_number: string
   title: string
   description: string
@@ -35,44 +50,109 @@ interface ServiceContract {
 export default function ServiceContractPreviewPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const contractId = Array.isArray(params.id) ? params.id[0] : params.id
   const [contract, setContract] = useState<ServiceContract | null>(null)
+  const [clients, setClients] = useState<ServiceContractClientOption[]>([])
   const [loading, setLoading] = useState(true)
-  const templateRef = useRef<HTMLDivElement>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editFormValues, setEditFormValues] = useState<ServiceContractFormValues | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [printingPdf, setPrintingPdf] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     async function fetchContract() {
-      const { data, error } = await supabase
-        .from('service_contracts')
-        .select(`
-          *,
-          clients (
-            contact_name,
-            company_name,
-            address,
-            city,
-            parish
-          )
-        `)
-        .eq('id', params.id)
-        .single()
+      if (!contractId) {
+        toast.error('Invalid service contract')
+        router.push('/admin/service-contracts')
+        return
+      }
 
-      if (error) {
+      const [{ data, error }, { data: clientsData }] = await Promise.all([
+        supabase
+          .from('service_contracts')
+          .select(`
+            *,
+            clients (
+              contact_name,
+              company_name,
+              address,
+              city,
+              parish
+            )
+          `)
+          .eq('id', contractId)
+          .single(),
+        supabase
+          .from('clients')
+          .select('id, contact_name, company_name, address, city, parish')
+          .order('company_name'),
+      ])
+
+      if (error || !data) {
         toast.error('Failed to load service contract')
         router.push('/admin/service-contracts')
         return
       }
 
       setContract(data)
+      setClients((clientsData || []) as ServiceContractClientOption[])
+      setEditFormValues(buildServiceContractFormValues(data as any))
       setLoading(false)
     }
 
     fetchContract()
-  }, [params.id, router, supabase])
+  }, [contractId, router, supabase])
 
-  const handlePrint = () => {
-    window.print()
-  }
+  useEffect(() => {
+    if (searchParams.get('edit') === '1' && editFormValues) {
+      setIsEditing(true)
+    }
+  }, [editFormValues, searchParams])
+
+  const pdfData = useMemo(
+    () => (contract ? buildServiceContractPdfData(contract as any) : null),
+    [contract]
+  )
+
+  useEffect(() => {
+    if (!contract || !pdfData) {
+      return
+    }
+
+    let cancelled = false
+
+    async function generatePreview() {
+      setGeneratingPdf(true)
+      setPdfError(null)
+
+      try {
+        const result = await generateServiceContractPdf(pdfData)
+        if (!cancelled) {
+          setPdfBase64(result.pdfBase64)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPdfError(error instanceof Error ? error.message : 'Failed to generate service contract PDF preview')
+        }
+      } finally {
+        if (!cancelled) {
+          setGeneratingPdf(false)
+        }
+      }
+    }
+
+    generatePreview()
+
+    return () => {
+      cancelled = true
+    }
+  }, [contract, pdfData])
 
   if (loading) {
     return (
@@ -90,95 +170,129 @@ export default function ServiceContractPreviewPage() {
     )
   }
 
-  // Generate service schedule based on billing frequency
-  const generateServiceSchedule = () => {
-    const schedules = []
-    const startDate = new Date(contract.start_date)
-    const frequency = contract.billing_frequency
+  async function handlePrint() {
+    if (!pdfData) return
+    setPrintingPdf(true)
 
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                    'July', 'August', 'September', 'October', 'November', 'December']
-
-    if (frequency === 'quarterly') {
-      for (let i = 0; i < 4; i++) {
-        const serviceDate = new Date(startDate)
-        serviceDate.setMonth(startDate.getMonth() + (i * 3))
-        schedules.push({
-          period: `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} Servicing`,
-          date: `${months[serviceDate.getMonth()]} ${serviceDate.getFullYear()}`
-        })
-      }
-    } else if (frequency === 'monthly') {
-      for (let i = 0; i < 12; i++) {
-        const serviceDate = new Date(startDate)
-        serviceDate.setMonth(startDate.getMonth() + i)
-        schedules.push({
-          period: `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} Servicing`,
-          date: `${months[serviceDate.getMonth()]} ${serviceDate.getFullYear()}`
-        })
-      }
-    } else {
-      // bi-annually
-      for (let i = 0; i < 2; i++) {
-        const serviceDate = new Date(startDate)
-        serviceDate.setMonth(startDate.getMonth() + (i * 6))
-        schedules.push({
-          period: `${i + 1}${i === 0 ? 'st' : 'nd'} Servicing`,
-          date: `${months[serviceDate.getMonth()]} ${serviceDate.getFullYear()}`
-        })
-      }
+    try {
+      await printServiceContractPdf(pdfData)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to print service contract PDF')
+    } finally {
+      setPrintingPdf(false)
     }
-
-    return schedules
   }
 
-  let parsedNotes: any = {}
-  try {
-    if (contract.notes) {
-      parsedNotes = typeof contract.notes === 'string' ? JSON.parse(contract.notes) : contract.notes
+  async function handleDownloadPdf() {
+    if (!pdfData) return
+    setDownloadingPdf(true)
+
+    try {
+      const safeFileName = `Service-Contract-${pdfData.contract_number}.pdf`
+      await downloadServiceContractPdf(pdfData, safeFileName)
+      toast.success('Service contract PDF downloaded')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download service contract PDF')
+    } finally {
+      setDownloadingPdf(false)
     }
-  } catch (e) {}
+  }
 
-  const contractItems = (contract as any).items || []
-  const subtotal = contractItems.reduce((acc: number, item: any) => acc + (item.quantity * item.unit_price) - (item.discount || 0), 0)
+  function clearEditQueryIfNeeded() {
+    if (contractId && searchParams.get('edit') === '1') {
+      router.replace(`/admin/service-contracts/${contractId}`)
+    }
+  }
 
-  const contractData = {
-    contract_number: contract.contract_number,
-    date: new Date(contract.created_at).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }),
-    payment_terms: parsedNotes.payment_terms || 'As per agreement',
-    service_description: contract.title || 'PREDICTIVE MAINTENANCE SERVICE CONTRACT FOR AIR CONDITIONER MAINTENANCE',
-    contract_type: 'SERVICE CONTRACT',
-    schedule_frequency: contract.billing_frequency === 'quarterly' 
-      ? 'Quarterly (4 Times Yearly)' 
-      : contract.billing_frequency === 'monthly'
-      ? 'Monthly (12 Times Yearly)'
-      : 'Bi-Annually (2 Times Yearly)',
-    client: {
-      name: parsedNotes.contact_person || contract.clients?.contact_name || 'Client',
-      company: contract.clients?.company_name || '',
-      address: parsedNotes.address || contract.clients?.address || '',
-      city: contract.clients?.city || ''
-    },
-    items: contractItems.map((item: any) => ({
-      description: item.description,
-      qty: item.quantity,
-      unit_price: item.unit_price,
-      discount: item.discount || 0,
-      amount: (item.quantity * item.unit_price) - (item.discount || 0)
-    })),
-    subtotal: subtotal,
-    total: subtotal,
-    service_schedule: generateServiceSchedule(),
-    ark_representative: parsedNotes.ark_representative || 'Suzanne Gordon',
-    ark_position: parsedNotes.ark_position || 'Director',
-    customer_representative: parsedNotes.customer_representative || '',
-    customer_position: parsedNotes.customer_position || '',
-    scopeOfWork: parsedNotes.scope_of_work,
-    scopeOfWorkPoints: parsedNotes.scope_of_work_points
+  function handleStartEdit() {
+    if (!contract) return
+
+    setEditFormValues(buildServiceContractFormValues(contract as any))
+    setIsEditing(true)
+  }
+
+  function handleCancelEdit() {
+    if (contract) {
+      setEditFormValues(buildServiceContractFormValues(contract as any))
+    }
+
+    setIsEditing(false)
+    clearEditQueryIfNeeded()
+  }
+
+  async function handleSave(values: ServiceContractFormValues) {
+    if (!contract) return
+
+    const lineItems = values.lineItems
+      .map((item) => ({
+        ...item,
+        description: item.description.trim(),
+      }))
+      .filter((item) => item.description)
+
+    if (lineItems.length === 0) {
+      toast.error('Add at least one line item before saving')
+      return
+    }
+
+    setSaving(true)
+
+    const startDate = values.startDate || new Date().toISOString().split('T')[0]
+    const totalAmount = calculateServiceContractTotal(lineItems)
+
+    const { error: updateError } = await supabase
+      .from('service_contracts')
+      .update({
+        client_id: values.clientId || null,
+        title: values.serviceDescription || 'Service Contract',
+        amount: totalAmount,
+        billing_frequency: values.recurringSchedule,
+        status: values.status,
+        start_date: startDate,
+        end_date: computeServiceContractEndDate(startDate),
+        notes: JSON.stringify(
+          buildServiceContractNotesPayload({
+            ...values,
+            startDate,
+            lineItems,
+          })
+        ),
+      })
+      .eq('id', contract.id)
+
+    if (updateError) {
+      toast.error(updateError.message || 'Failed to update service contract')
+      setSaving(false)
+      return
+    }
+
+    const { data: refreshedContract, error: reloadError } = await supabase
+      .from('service_contracts')
+      .select(`
+        *,
+        clients (
+          contact_name,
+          company_name,
+          address,
+          city,
+          parish
+        )
+      `)
+      .eq('id', contract.id)
+      .single()
+
+    if (reloadError || !refreshedContract) {
+      toast.error(reloadError?.message || 'Service contract saved, but refresh failed')
+      setSaving(false)
+      return
+    }
+
+    setContract(refreshedContract)
+    setEditFormValues(buildServiceContractFormValues(refreshedContract as any))
+    setIsEditing(false)
+    clearEditQueryIfNeeded()
+    toast.success('Service contract updated successfully')
+    setSaving(false)
   }
 
   return (
@@ -194,24 +308,70 @@ export default function ServiceContractPreviewPage() {
           Back to Service Contracts
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint} className="gap-2">
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Download PDF
-          </Button>
-          <Button className="gap-2 bg-[#00BFFF] hover:bg-[#00BFFF]/90">
-            <Send className="h-4 w-4" />
-            Send to Client
-          </Button>
+          {!isEditing && (
+            <>
+              <Button variant="outline" onClick={handleStartEdit} className="gap-2">
+                <Pencil className="h-4 w-4" />
+                Edit Contract
+              </Button>
+              <Button variant="outline" onClick={handlePrint} className="gap-2" disabled={printingPdf || generatingPdf}>
+                <Printer className="h-4 w-4" />
+                {printingPdf ? 'Printing...' : 'Print'}
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={handleDownloadPdf} disabled={downloadingPdf || generatingPdf}>
+                <Download className="h-4 w-4" />
+                {downloadingPdf ? 'Downloading...' : 'Download PDF'}
+              </Button>
+              <Button className="gap-2 bg-[#00BFFF] hover:bg-[#00BFFF]/90">
+                <Send className="h-4 w-4" />
+                Send to Client
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Service Contract Template */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <ServiceContractTemplate ref={templateRef} data={contractData} />
+      {isEditing && editFormValues && (
+        <EditServiceContractForm
+          contractNumber={contract.contract_number}
+          initialValues={editFormValues}
+          clients={clients}
+          saving={saving}
+          onSave={handleSave}
+          onCancel={handleCancelEdit}
+        />
+      )}
+
+      {/* Service Contract PDF Preview */}
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden min-h-[75vh]">
+        {generatingPdf ? (
+          <div className="flex min-h-[75vh] items-center justify-center">
+            <div className="text-center space-y-3">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-[#00BFFF]" />
+              <p className="text-sm text-muted-foreground">Generating service contract PDF preview...</p>
+            </div>
+          </div>
+        ) : pdfError ? (
+          <div className="flex min-h-[75vh] items-center justify-center p-6">
+            <div className="text-center space-y-3">
+              <p className="text-sm font-medium text-red-500">Preview generation failed</p>
+              <p className="text-sm text-muted-foreground">{pdfError}</p>
+              <Button variant="outline" onClick={() => router.refresh()}>
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : pdfBase64 ? (
+          <iframe
+            src={`data:application/pdf;base64,${pdfBase64}`}
+            title={`Service Contract ${pdfData?.contract_number || contract.contract_number} PDF Preview`}
+            className="h-[calc(100vh-220px)] min-h-[900px] w-full"
+          />
+        ) : (
+          <div className="flex min-h-[75vh] items-center justify-center">
+            <p className="text-sm text-muted-foreground">PDF preview will appear here.</p>
+          </div>
+        )}
       </div>
     </div>
   )

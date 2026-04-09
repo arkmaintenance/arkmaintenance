@@ -21,12 +21,64 @@ interface InvoiceEmailData {
   balance_due: number
 }
 
+export interface InvoiceEmailContentOptions {
+  title?: string
+  greetingName?: string
+  message?: string
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderParagraphs(message: string) {
+  return message
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `
+        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">
+          ${escapeHtml(paragraph).replace(/\n/g, '<br />')}
+        </p>
+        `)
+    .join('')
+}
+
+export function getDefaultInvoiceEmailContent(data: InvoiceEmailData): Required<InvoiceEmailContentOptions> {
+  return {
+    title: `Invoice ${data.invoice_number}`,
+    greetingName: data.client.name?.trim() || 'Client',
+    message: `Please find attached your invoice for ${data.service_description}. We appreciate your business and are grateful for the opportunity to serve you.`,
+  }
+}
+
 /**
  * Generate a simple, clean notification email for invoice delivery
  * The full invoice details are attached as a PDF
  */
-export function generateInvoiceEmailHtml(data: InvoiceEmailData, customMessage?: string): string {
-  const clientFirstName = data.client.name.split(' ')[0]
+export function generateInvoiceEmailHtml(
+  data: InvoiceEmailData,
+  optionsOrCustomMessage?: string | InvoiceEmailContentOptions
+): string {
+  const defaults = getDefaultInvoiceEmailContent(data)
+  const options = typeof optionsOrCustomMessage === 'string'
+    ? { message: optionsOrCustomMessage }
+    : optionsOrCustomMessage || {}
+  const title = (options.title || defaults.title).trim()
+  const greetingName = (options.greetingName || defaults.greetingName).trim()
+  const message = (options.message || defaults.message).trim()
+  const clientLines = [
+    data.client.name,
+    data.client.company,
+    data.client.address,
+    data.client.city,
+    data.client.parish,
+  ].filter(Boolean)
 
   return `
 <!DOCTYPE html>
@@ -50,66 +102,44 @@ export function generateInvoiceEmailHtml(data: InvoiceEmailData, customMessage?:
     <tr>
       <td style="padding: 40px;">
         <h1 style="color: #1a1a2e; font-size: 24px; margin: 0 0 20px 0; font-weight: 600;">
-          Invoice ${data.invoice_number}
+          ${escapeHtml(title)}
         </h1>
         
         <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">
-          Dear ${clientFirstName},
+          Dear ${escapeHtml(greetingName)},
         </p>
         
-        ${customMessage ? `
-        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">
-          ${customMessage}
-        </p>
-        ` : ''}
+        ${renderParagraphs(message)}
         
-        <p style="color: #4b5563; font-size: 16px; margin: 0 0 25px 0;">
-          Please find attached your invoice for <strong>${data.service_description}</strong>. 
-          We appreciate your business and are grateful for the opportunity to serve you.
-        </p>
-        
-        <!-- Invoice Summary Card -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 8px; margin-bottom: 25px;">
+        <!-- Client + Invoice Summary -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 25px 0;">
           <tr>
-            <td style="padding: 20px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-                    <span style="color: #6b7280; font-size: 14px;">Invoice Number</span>
-                  </td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                    <strong style="color: #1a1a2e; font-size: 14px;">${data.invoice_number}</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-                    <span style="color: #6b7280; font-size: 14px;">Date</span>
-                  </td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                    <strong style="color: #1a1a2e; font-size: 14px;">${data.date}</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-                    <span style="color: #6b7280; font-size: 14px;">Payment Terms</span>
-                  </td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                    <strong style="color: #1a1a2e; font-size: 14px;">${data.payment_terms}</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 12px 0 0 0;">
-                    <span style="color: #FF6B00; font-size: 16px; font-weight: 600;">Balance Due</span>
-                  </td>
-                  <td style="padding: 12px 0 0 0; text-align: right;">
-                    <strong style="color: #FF6B00; font-size: 20px;">JMD ${data.balance_due.toLocaleString()}</strong>
-                  </td>
-                </tr>
-              </table>
+            <td width="50%" style="vertical-align: top; padding-right: 10px;">
+              <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; height: 100%;">
+                <p style="color: #1a1a2e; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
+                  Client Details
+                </p>
+                ${clientLines.map((line, index) => `
+                <p style="color: ${index === 0 ? '#1f2937' : '#4b5563'}; font-size: 14px; margin: 0 0 6px 0; ${index === 0 ? 'font-weight: 700;' : ''}">
+                  ${escapeHtml(line)}
+                </p>
+                `).join('')}
+              </div>
+            </td>
+            <td width="50%" style="vertical-align: top; padding-left: 10px;">
+              <div style="background-color: #ecfdf5; border: 1px solid #86efac; border-radius: 8px; padding: 16px; height: 100%;">
+                <p style="color: #166534; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
+                  Invoice Summary
+                </p>
+                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Invoice:</strong> ${escapeHtml(data.invoice_number)}</p>
+                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Date:</strong> ${escapeHtml(data.date)}</p>
+                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Payment Terms:</strong> ${escapeHtml(data.payment_terms)}</p>
+                <p style="color: #4b5563; font-size: 14px; margin: 0;"><strong>Balance Due:</strong> JMD ${data.balance_due.toLocaleString()}</p>
+              </div>
             </td>
           </tr>
         </table>
-        
+
         <!-- Attachment Notice -->
         <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 25px;">
           <table width="100%" cellpadding="0" cellspacing="0">

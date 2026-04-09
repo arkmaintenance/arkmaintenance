@@ -124,6 +124,12 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
           subtotal,
           total,
           created_at,
+          payment_terms,
+          is_service_contract,
+          recurring_schedule,
+          scope_template,
+          scope_of_work,
+          scope_of_work_points,
           clients (
             contact_name,
             company_name,
@@ -152,7 +158,7 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
       const dateStr = new Date(data.created_at).toISOString().split('T')[0]
       const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
       const jobDesc = data.title || ''
-      const safeFileName = `${data.quote_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
+      const safeFileName = `Quote-${data.quote_number}${jobDesc ? `-${jobDesc}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadQuotationPdf({
         quote_number: data.quote_number,
@@ -173,6 +179,11 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
         items,
         subtotal,
         total,
+        isServiceContract: data.is_service_contract,
+        recurringSchedule: data.recurring_schedule,
+        scopeTemplate: data.scope_template,
+        scopeOfWork: data.scope_of_work,
+        scopeOfWorkPoints: Array.isArray(data.scope_of_work_points) ? data.scope_of_work_points : [],
       }, safeFileName)
 
       toast.success('Quotation PDF downloaded')

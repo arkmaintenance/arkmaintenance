@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Generate PDF using React PDF
     const pdfBuffer = await renderToBuffer(
-      React.createElement(InvoicePdfDocument, { data: safeInvoiceData })
+      React.createElement(InvoicePdfDocument, { data: safeInvoiceData }) as any
     )
 
     // Convert to base64
