@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState, forwardRef, type MutableRefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, forwardRef, type MutableRefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { CalendarPlus, ChevronDown, Loader2, Minus, Plus } from 'lucide-react'
+import { ChevronDown, Loader2, Minus, Save } from 'lucide-react'
 
 const Combobox = forwardRef<HTMLInputElement, {
   value: string
@@ -46,6 +47,7 @@ const Combobox = forwardRef<HTMLInputElement, {
         setOpen(false)
       }
     }
+
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
@@ -140,27 +142,73 @@ interface Technician {
   name: string
 }
 
-interface AddAppointmentDialogProps {
+interface Appointment {
+  id: string
+  client_id: string | null
+  technician_id: string | null
+  title: string
+  description: string | null
+  status: string
+  priority: string
+  scheduled_date: string | null
+  scheduled_time: string | null
+  address: string | null
+  notes: unknown
+  clients: { contact_name: string; company_name: string | null } | null
+  technicians: { name: string } | null
+}
+
+interface ParsedAppointmentNotes {
+  contact_person?: unknown
+  telephone?: unknown
+  address_landmark?: unknown
+  additional_technicians?: unknown
+  company_name?: unknown
+}
+
+interface EditAppointmentDialogProps {
+  appointment: Appointment | null
   clients: Client[]
   technicians: Technician[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 function buildAddress(client: Client) {
   return [client.address, client.city, client.parish].filter(Boolean).join(', ')
 }
 
-export function AddAppointmentDialog({ clients: initialClients, technicians: initialTechnicians }: AddAppointmentDialogProps) {
-  const [open, setOpen] = useState(false)
+function asText(value: unknown) {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
+function parseNotes(notes: unknown): ParsedAppointmentNotes {
+  if (!notes) return {}
+  if (typeof notes === 'object' && !Array.isArray(notes)) return notes as ParsedAppointmentNotes
+  if (typeof notes !== 'string') return {}
+
+  try {
+    return JSON.parse(notes) as ParsedAppointmentNotes
+  } catch {
+    return {}
+  }
+}
+
+export function EditAppointmentDialog({
+  appointment,
+  clients,
+  technicians,
+  open,
+  onOpenChange,
+}: EditAppointmentDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [clients, setClients] = useState<Client[]>(initialClients)
-  const [technicians, setTechnicians] = useState<Technician[]>(initialTechnicians)
-  const [companyNames, setCompanyNames] = useState<string[]>([])
-  const [contactNames, setContactNames] = useState<string[]>([])
-  const [addresses, setAddresses] = useState<string[]>([])
-  const [technicianNames, setTechnicianNames] = useState<string[]>([])
   const [subject, setSubject] = useState('')
-  const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split('T')[0])
+  const [appointmentDate, setAppointmentDate] = useState('')
   const [appointmentTime, setAppointmentTime] = useState('')
+  const [status, setStatus] = useState('scheduled')
+  const [priority, setPriority] = useState('medium')
   const [selectedCompany, setSelectedCompany] = useState('')
   const [contactPerson, setContactPerson] = useState('')
   const [telephone, setTelephone] = useState('')
@@ -172,48 +220,54 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    if (!open) return
-
-    async function load() {
-      const [{ data: clientData }, { data: technicianData }] = await Promise.all([
-        supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name'),
-        supabase.from('technicians').select('id, name').order('name'),
-      ])
-
-      if (clientData) {
-        const safeClients = clientData as Client[]
-        setClients(safeClients)
-        setCompanyNames([...new Set(safeClients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))])
-        setContactNames([...new Set(safeClients.map((client) => String(client.contact_name || '')).filter(Boolean))])
-        setAddresses([...new Set(safeClients.map((client) => buildAddress(client)).filter(Boolean))])
-      }
-
-      if (technicianData) {
-        const safeTechnicians = technicianData as Technician[]
-        setTechnicians(safeTechnicians)
-        setTechnicianNames(safeTechnicians.map((technician) => technician.name))
-      }
+  const companyNames = useMemo(
+    () => [...new Set(clients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))],
+    [clients]
+  )
+  const addressOptions = useMemo(
+    () => [...new Set(clients.map((client) => buildAddress(client)).filter(Boolean))],
+    [clients]
+  )
+  const technicianNames = useMemo(() => technicians.map((technician) => technician.name), [technicians])
+  const contactOptions = useMemo(() => {
+    if (!selectedCompany) {
+      return [...new Set(clients.map((client) => client.contact_name).filter(Boolean))]
     }
 
-    load()
-  }, [open])
+    return [
+      ...new Set(
+        clients
+          .filter((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
+          .map((client) => client.contact_name)
+          .filter(Boolean)
+      ),
+    ]
+  }, [clients, selectedCompany])
 
   useEffect(() => {
-    if (!open) {
-      setSubject('')
-      setAppointmentDate(new Date().toISOString().split('T')[0])
-      setAppointmentTime('')
-      setSelectedCompany('')
-      setContactPerson('')
-      setTelephone('')
-      setSelectedTechnician('')
-      setAdditionalTechnicians('')
-      setAddress('')
-      setLandmark('')
-      setNotes('')
-    }
-  }, [open])
+    if (!appointment || !open) return
+
+    const parsedNotes = parseNotes(appointment.notes)
+    const company = appointment.clients?.company_name || appointment.clients?.contact_name || asText(parsedNotes.company_name)
+
+    setSubject(appointment.title || '')
+    setAppointmentDate(appointment.scheduled_date || '')
+    setAppointmentTime(appointment.scheduled_time || '')
+    setStatus(appointment.status || 'scheduled')
+    setPriority(appointment.priority || 'medium')
+    setSelectedCompany(company || '')
+    setContactPerson(asText(parsedNotes.contact_person) || appointment.clients?.contact_name || '')
+    setTelephone(asText(parsedNotes.telephone))
+    setSelectedTechnician(appointment.technicians?.name || '')
+    setAdditionalTechnicians(
+      Array.isArray(parsedNotes.additional_technicians)
+        ? parsedNotes.additional_technicians.map((entry) => asText(entry)).filter(Boolean).join(', ')
+        : ''
+    )
+    setAddress(appointment.address || '')
+    setLandmark(asText(parsedNotes.address_landmark))
+    setNotes(appointment.description || '')
+  }, [appointment, open])
 
   function handleCompanySelect(company: string) {
     setSelectedCompany(company)
@@ -222,12 +276,14 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
 
     const [firstClient] = matchingClients
     setContactPerson(firstClient.contact_name || '')
-    setAddress(buildAddress(firstClient))
-    setContactNames([...new Set(matchingClients.map((client) => client.contact_name).filter(Boolean))])
+    const clientAddress = buildAddress(firstClient)
+    if (clientAddress) setAddress(clientAddress)
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+
+    if (!appointment) return
 
     if (!subject.trim()) {
       toast.error('Appointment subject is required')
@@ -241,13 +297,6 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
 
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      toast.error('You must be logged in')
-      setLoading(false)
-      return
-    }
-
     const clientRecord = clients.find((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
     const technicianRecord = technicians.find((technician) => technician.name === selectedTechnician)
     const additionalTechnicianList = additionalTechnicians
@@ -255,58 +304,55 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
       .map((name) => name.trim())
       .filter(Boolean)
 
-    const { error } = await supabase.from('jobs').insert({
-      user_id: user.id,
-      title: subject.trim(),
-      description: notes.trim() || null,
-      job_type: 'appointment',
-      status: 'scheduled',
-      priority: 'medium',
-      scheduled_date: appointmentDate,
-      scheduled_time: appointmentTime || null,
-      address: address.trim() || null,
-      client_id: clientRecord?.id || null,
-      technician_id: technicianRecord?.id || null,
-      is_recurring: false,
-      notes: JSON.stringify({
-        appointment: true,
-        recurring_schedule: 'one-time',
-        is_service_contract: false,
-        contact_person: contactPerson.trim(),
-        telephone: telephone.trim(),
-        address_landmark: landmark.trim(),
-        additional_technicians: additionalTechnicianList,
-        company_name: selectedCompany.trim(),
-      }),
-    })
+    const { error } = await supabase
+      .from('jobs')
+      .update({
+        title: subject.trim(),
+        description: notes.trim() || null,
+        status,
+        priority,
+        scheduled_date: appointmentDate,
+        scheduled_time: appointmentTime || null,
+        address: address.trim() || null,
+        client_id: clientRecord?.id || null,
+        technician_id: technicianRecord?.id || null,
+        notes: JSON.stringify({
+          appointment: true,
+          recurring_schedule: 'one-time',
+          is_service_contract: false,
+          contact_person: contactPerson.trim(),
+          telephone: telephone.trim(),
+          address_landmark: landmark.trim(),
+          additional_technicians: additionalTechnicianList,
+          company_name: selectedCompany.trim(),
+        }),
+      })
+      .eq('id', appointment.id)
 
     if (error) {
-      console.error('[AddAppointmentDialog] Failed to create appointment', error)
-      toast.error(error.message || 'Failed to create appointment')
+      console.error('[EditAppointmentDialog] Failed to update appointment', error)
+      toast.error(error.message || 'Failed to update appointment')
       setLoading(false)
       return
     }
 
-    toast.success('Appointment created successfully')
+    toast.success('Appointment updated successfully')
     setLoading(false)
-    setOpen(false)
+    onOpenChange(false)
     router.refresh()
   }
 
   const labelClassName = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400'
   const sectionClassName = 'space-y-3 rounded-xl border border-[#2d3352] bg-[#151a2c] p-4'
 
+  if (!appointment) return null
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-emerald-500 text-black hover:bg-emerald-400">
-          <CalendarPlus className="mr-2 h-4 w-4" /> New Appointment
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto border-[#2d3352] bg-[#0d1220] p-0 text-white">
         <div className="rounded-t-lg bg-gradient-to-r from-[#0f7d8a] via-[#154c79] to-[#1d365f] px-6 py-4">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-white">New Appointment</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-white">Edit Appointment</DialogTitle>
           </DialogHeader>
         </div>
 
@@ -319,40 +365,50 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className={labelClassName}>Date</Label>
-                  <Input
-                    type="date"
-                    value={appointmentDate}
-                    onChange={(event) => setAppointmentDate(event.target.value)}
-                    className="border-[#2d3352] bg-[#1e2235] text-white"
-                  />
+                  <Input type="date" value={appointmentDate} onChange={(event) => setAppointmentDate(event.target.value)} className="border-[#2d3352] bg-[#1e2235] text-white" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={labelClassName}>Time</Label>
-                  <Input
-                    type="time"
-                    value={appointmentTime}
-                    onChange={(event) => setAppointmentTime(event.target.value)}
-                    className="border-[#2d3352] bg-[#1e2235] text-white"
-                  />
+                  <Input type="time" value={appointmentTime} onChange={(event) => setAppointmentTime(event.target.value)} className="border-[#2d3352] bg-[#1e2235] text-white" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label className={labelClassName}>Subject</Label>
                 <div className="flex items-center gap-1">
-                  <Input
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    placeholder="Appointment subject"
-                    className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSubject('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <Input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Appointment subject" className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500" />
+                  <button type="button" onClick={() => setSubject('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className={labelClassName}>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="border-[#2d3352] bg-[#1e2235] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#2d3352] bg-[#13172a] text-white">
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className={labelClassName}>Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="border-[#2d3352] bg-[#1e2235] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#2d3352] bg-[#13172a] text-white">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -364,11 +420,7 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                 <Label className={labelClassName}>Company / Client</Label>
                 <div className="flex items-center gap-1">
                   <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCompany('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <button type="button" onClick={() => setSelectedCompany('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -377,12 +429,8 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                 <div className="space-y-1.5">
                   <Label className={labelClassName}>Contact Person</Label>
                   <div className="flex items-center gap-1">
-                    <Combobox value={contactPerson} onChange={setContactPerson} options={contactNames} placeholder="Contact person" />
-                    <button
-                      type="button"
-                      onClick={() => setContactPerson('')}
-                      className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                    >
+                    <Combobox value={contactPerson} onChange={setContactPerson} options={contactOptions} placeholder="Contact person" />
+                    <button type="button" onClick={() => setContactPerson('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -390,26 +438,15 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                 <div className="space-y-1.5">
                   <Label className={labelClassName}>Telephone</Label>
                   <div className="flex items-center gap-1">
-                    <Input
-                      value={telephone}
-                      onChange={(event) => setTelephone(event.target.value)}
-                      placeholder="Telephone number"
-                      className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setTelephone('')}
-                      className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                    >
+                    <Input value={telephone} onChange={(event) => setTelephone(event.target.value)} placeholder="Telephone number" className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500" />
+                    <button type="button" onClick={() => setTelephone('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
             <div className={sectionClassName}>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-400">Technician Assignment</p>
@@ -418,11 +455,7 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                 <Label className={labelClassName}>Technician Assigned</Label>
                 <div className="flex items-center gap-1">
                   <Combobox value={selectedTechnician} onChange={setSelectedTechnician} options={technicianNames} placeholder="Select technician..." />
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTechnician('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <button type="button" onClick={() => setSelectedTechnician('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -430,17 +463,8 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
               <div className="space-y-1.5">
                 <Label className={labelClassName}>Additional Technicians</Label>
                 <div className="flex items-center gap-1">
-                  <Input
-                    value={additionalTechnicians}
-                    onChange={(event) => setAdditionalTechnicians(event.target.value)}
-                    placeholder="Comma separated technician names"
-                    className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setAdditionalTechnicians('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <Input value={additionalTechnicians} onChange={(event) => setAdditionalTechnicians(event.target.value)} placeholder="Comma separated technician names" className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500" />
+                  <button type="button" onClick={() => setAdditionalTechnicians('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -454,12 +478,8 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
               <div className="space-y-1.5">
                 <Label className={labelClassName}>Address</Label>
                 <div className="flex items-center gap-1">
-                  <Combobox value={address} onChange={setAddress} options={addresses} placeholder="Type or select address" />
-                  <button
-                    type="button"
-                    onClick={() => setAddress('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <Combobox value={address} onChange={setAddress} options={addressOptions} placeholder="Type or select address" />
+                  <button type="button" onClick={() => setAddress('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -467,17 +487,8 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
               <div className="space-y-1.5">
                 <Label className={labelClassName}>Address Landmark</Label>
                 <div className="flex items-center gap-1">
-                  <Input
-                    value={landmark}
-                    onChange={(event) => setLandmark(event.target.value)}
-                    placeholder="Nearby landmark"
-                    className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setLandmark('')}
-                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
-                  >
+                  <Input value={landmark} onChange={(event) => setLandmark(event.target.value)} placeholder="Nearby landmark" className="flex-1 border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500" />
+                  <button type="button" onClick={() => setLandmark('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -489,21 +500,16 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-300">Notes</p>
             </div>
-            <Textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Additional appointment notes..."
-              className="min-h-[120px] border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500"
-            />
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Additional appointment notes..." className="min-h-[120px] border-[#2d3352] bg-[#1e2235] text-white placeholder:text-gray-500" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-[#2d3352] bg-transparent text-white hover:bg-[#1e2235]">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-[#2d3352] bg-transparent text-white hover:bg-[#1e2235]">
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="bg-emerald-500 text-black hover:bg-emerald-400">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Create Appointment
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
             </Button>
           </div>
         </form>

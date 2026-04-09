@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   FileText,
   ClipboardList,
   Briefcase,
@@ -33,6 +34,7 @@ import { useState } from 'react'
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
+  { name: 'Appointments', href: '/admin/appointments', icon: CalendarDays },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
   { name: 'Quotations', href: '/admin/quotations', icon: ClipboardList },
   { name: 'Jobs', href: '/admin/jobs', icon: Briefcase },
@@ -100,7 +102,7 @@ export function DashboardSidebar() {
       <div className="flex-1 overflow-y-auto py-4 min-h-0">
         <nav className="space-y-1 px-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
             return (
               <Link
                 key={item.name}

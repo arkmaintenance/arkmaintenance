@@ -90,8 +90,13 @@ export function CalendarView({ items, mode }: CalendarViewProps) {
     return items.filter((item) => item.scheduled_date === dateStr)
   }
 
-  function openItemDetail(itemId: string) {
-    router.push(`/admin/jobs/${itemId}`)
+  function openItemDetail(item: CalendarItem) {
+    if (mode === 'appointments' || item.job_type === 'appointment') {
+      router.push(`/admin/appointments/${item.id}`)
+      return
+    }
+
+    router.push(`/admin/jobs/${item.id}`)
   }
 
   const today = new Date()
@@ -177,11 +182,11 @@ export function CalendarView({ items, mode }: CalendarViewProps) {
                           role="button"
                           tabIndex={0}
                           className={`rounded border p-1.5 text-xs transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#00BFFF] ${entryPaletteClass}`}
-                          onClick={() => openItemDetail(item.id)}
+                          onClick={() => openItemDetail(item)}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault()
-                              openItemDetail(item.id)
+                              openItemDetail(item)
                             }
                           }}
                         >
