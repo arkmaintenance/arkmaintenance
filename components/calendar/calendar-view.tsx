@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 
-interface Job {
+interface CalendarItem {
   id: string
   title: string
   status: string
   priority: string
+  job_type: string
   scheduled_date: string
   scheduled_time: string | null
   clients: { contact_name: string; company_name: string | null } | null
@@ -18,8 +19,20 @@ interface Job {
 }
 
 interface CalendarViewProps {
-  jobs: Job[]
+  items: CalendarItem[]
+  mode: 'jobs' | 'appointments'
 }
+
+const entryPalettes = [
+  'border-[#00BFFF]/35 bg-[#00BFFF]/10 hover:bg-[#00BFFF]/16',
+  'border-emerald-500/35 bg-emerald-500/10 hover:bg-emerald-500/16',
+  'border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/16',
+  'border-fuchsia-500/35 bg-fuchsia-500/10 hover:bg-fuchsia-500/16',
+  'border-violet-500/35 bg-violet-500/10 hover:bg-violet-500/16',
+  'border-rose-500/35 bg-rose-500/10 hover:bg-rose-500/16',
+  'border-cyan-500/35 bg-cyan-500/10 hover:bg-cyan-500/16',
+  'border-lime-500/35 bg-lime-500/10 hover:bg-lime-500/16',
+]
 
 const priorityColors: Record<string, string> = {
   low: 'bg-slate-500',
@@ -28,8 +41,26 @@ const priorityColors: Record<string, string> = {
   urgent: 'bg-red-500',
 }
 
-export function CalendarView({ jobs }: CalendarViewProps) {
+const appointmentStatusColors: Record<string, string> = {
+  pending: 'bg-amber-500',
+  scheduled: 'bg-emerald-500',
+  'in-progress': 'bg-cyan-500',
+  completed: 'bg-slate-500',
+  cancelled: 'bg-red-500',
+}
+
+function getEntryPalette(key: string) {
+  let hash = 0
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0
+  }
+
+  return entryPalettes[hash % entryPalettes.length]
+}
+
+export function CalendarView({ items, mode }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
+  const router = useRouter()
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -54,9 +85,13 @@ export function CalendarView({ jobs }: CalendarViewProps) {
     setCurrentDate(new Date(year, month + 1, 1))
   }
 
-  function getJobsForDate(day: number) {
+  function getItemsForDate(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    return jobs.filter(job => job.scheduled_date === dateStr)
+    return items.filter((item) => item.scheduled_date === dateStr)
+  }
+
+  function openItemDetail(itemId: string) {
+    router.push(`/admin/jobs/${itemId}`)
   }
 
   const today = new Date()
@@ -109,7 +144,7 @@ export function CalendarView({ jobs }: CalendarViewProps) {
         {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1">
           {calendarDays.map((day, index) => {
-            const dayJobs = day ? getJobsForDate(day) : []
+            const dayItems = day ? getItemsForDate(day) : []
             return (
               <div
                 key={index}
@@ -129,26 +164,48 @@ export function CalendarView({ jobs }: CalendarViewProps) {
                       {day}
                     </div>
                     <div className="space-y-1">
-                      {dayJobs.slice(0, 3).map(job => (
+                      {dayItems.slice(0, 3).map((item) => {
+                        const indicatorClass =
+                          mode === 'appointments'
+                            ? appointmentStatusColors[item.status] || appointmentStatusColors.scheduled
+                            : priorityColors[item.priority] || priorityColors.medium
+                        const entryPaletteClass = getEntryPalette(`${mode}-${item.id}-${item.title}`)
+
+                        return (
                         <div
-                          key={job.id}
-                          className="p-1 rounded text-xs bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+                          key={item.id}
+                          role="button"
+                          tabIndex={0}
+                          className={`rounded border p-1.5 text-xs transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#00BFFF] ${entryPaletteClass}`}
+                          onClick={() => openItemDetail(item.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              openItemDetail(item.id)
+                            }
+                          }}
                         >
                           <div className="flex items-center gap-1">
-                            <div className={`w-2 h-2 rounded-full ${priorityColors[job.priority]}`} />
-                            <span className="truncate text-foreground">{job.title}</span>
+                            <div className={`w-2 h-2 rounded-full ${indicatorClass}`} />
+                            <span className="truncate text-foreground">{item.title}</span>
                           </div>
-                          {job.scheduled_time && (
+                          {item.clients?.company_name || item.clients?.contact_name ? (
+                            <div className="truncate text-[11px] text-muted-foreground mt-0.5">
+                              {item.clients?.company_name || item.clients?.contact_name}
+                            </div>
+                          ) : null}
+                          {item.scheduled_time && (
                             <div className="flex items-center gap-1 text-muted-foreground mt-0.5">
                               <Clock className="h-3 w-3" />
-                              {job.scheduled_time}
+                              {item.scheduled_time}
                             </div>
                           )}
                         </div>
-                      ))}
-                      {dayJobs.length > 3 && (
+                        )
+                      })}
+                      {dayItems.length > 3 && (
                         <div className="text-xs text-muted-foreground text-center">
-                          +{dayJobs.length - 3} more
+                          +{dayItems.length - 3} more
                         </div>
                       )}
                     </div>
@@ -160,12 +217,14 @@ export function CalendarView({ jobs }: CalendarViewProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
-          <span className="text-sm text-muted-foreground">Priority:</span>
-          {Object.entries(priorityColors).map(([priority, color]) => (
-            <div key={priority} className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-border">
+          <span className="text-sm text-muted-foreground">
+            {mode === 'appointments' ? 'Status:' : 'Priority:'}
+          </span>
+          {Object.entries(mode === 'appointments' ? appointmentStatusColors : priorityColors).map(([label, color]) => (
+            <div key={label} className="flex items-center gap-1">
               <div className={`w-3 h-3 rounded-full ${color}`} />
-              <span className="text-sm text-muted-foreground capitalize">{priority}</span>
+              <span className="text-sm text-muted-foreground capitalize">{label.replace('-', ' ')}</span>
             </div>
           ))}
         </div>

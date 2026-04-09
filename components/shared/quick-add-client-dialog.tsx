@@ -103,15 +103,12 @@ export function QuickAddClientDialog({ open, onOpenChange, onSuccess }: QuickAdd
               <Input name="city" className="bg-[#2a2a4a] border-[#3a3a5a] text-white" />
             </div>
             <div className="space-y-1">
-              <Label className="text-gray-400 text-xs">Parish / Location</Label>
-              <Select name="parish" defaultValue="St. Catherine">
-                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a] text-white">
-                  {['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville'].map(p => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-gray-400 text-xs">Parish</Label>
+              <Input
+                name="parish"
+                placeholder="Enter parish"
+                className="bg-[#2a2a4a] border-[#3a3a 5a] text-white"
+              />
             </div>
           </div>
           <div className="space-y-1">

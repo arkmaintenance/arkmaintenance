@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useRef, forwardRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -9,10 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
 
 // ─── Inline Combobox (portal-based) ──────────────────────────────────────────
 
@@ -34,7 +34,7 @@ const Combobox = forwardRef<HTMLInputElement, {
   useEffect(() => { setQuery(value) }, [value])
 
   useEffect(() => {
-    if (!forwardRef) return
+    if (!fwdRef) return
     if (typeof fwdRef === 'function') fwdRef(inputRef.current)
     else if (fwdRef) fwdRef.current = inputRef.current
   })
@@ -62,11 +62,11 @@ const Combobox = forwardRef<HTMLInputElement, {
   const dropdown = open && (filtered.length > 0 ? (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto">
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl max-h-52 overflow-y-auto pointer-events-auto">
       {filtered.map((opt, i) => (
         <button key={i} type="button"
           className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#FF6B00]/20 truncate"
-          onMouseDown={() => { onChange(opt); setQuery(opt); setOpen(false) }}>
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(opt); setQuery(opt); setOpen(false) }}>
           {opt}
         </button>
       ))}
@@ -74,7 +74,7 @@ const Combobox = forwardRef<HTMLInputElement, {
   ) : (
     <div ref={dropRef}
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
-      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm">
+      className="bg-[#1a1a2e] border border-[#3a3a5a] rounded-md shadow-2xl p-3 text-gray-400 text-sm pointer-events-auto">
       {options.length === 0 ? 'Loading...' : 'No matches found'}
     </div>
   ))
@@ -93,7 +93,7 @@ const Combobox = forwardRef<HTMLInputElement, {
           <ChevronDown className="h-3 w-3" />
         </button>
       </div>
-      {mounted && open && createPortal(dropdown, document.body)}
+      {mounted && open && <DialogPortal>{dropdown}</DialogPortal>}
     </div>
   )
 })
@@ -148,6 +148,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     { id: '1', description: '', quantity: 1, unit_price: 0 }
   ])
   const [specialNotes, setSpecialNotes] = useState('')
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   // Load clients + services from DB when dialog opens
   useEffect(() => {
@@ -157,22 +158,25 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
       const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
-        setClients(clientData)
-        setCompanyNames([...new Set(clientData.map(c => c.company_name).filter(Boolean) as string[])])
-        setContactNames([...new Set(clientData.map(c => c.contact_name).filter(Boolean))])
-        setAddresses([...new Set(clientData.map(c => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))])
+        const safeClients = clientData as Client[]
+        setClients(safeClients)
+        setCompanyNames([...new Set(safeClients.map((client) => client.company_name).filter(Boolean) as string[])])
+        setContactNames([...new Set(safeClients.map((client) => client.contact_name).filter(Boolean))])
+        setAddresses([...new Set(safeClients.map((client) => [client.address, client.city, client.parish].filter(Boolean).join(', ')).filter(Boolean))])
       }
       const { data: techData } = await supabase.from('technicians').select('id, name').order('name')
       if (techData) {
-        setTechnicians(techData)
-        setTechnicianNames(techData.map(t => t.name))
+        const safeTechnicians = techData as Technician[]
+        setTechnicians(safeTechnicians)
+        setTechnicianNames(safeTechnicians.map((technician) => technician.name))
       }
       const { data: svcData } = await supabase.from('services').select('name, base_price').eq('status', 'active').order('name')
       if (svcData) {
-        setServiceOptions(svcData.map(s => ({ name: s.name, base_price: Number(s.base_price) })))
-        setServiceNames(svcData.map(s => s.name))
+        const safeServices = svcData as ServiceOption[]
+        setServiceOptions(safeServices.map((service) => ({ name: service.name, base_price: Number(service.base_price) })))
+        setServiceNames(safeServices.map((service) => service.name))
       }
-      const { data: jobData } = await supabase.from('jobs').select('title').not('title', 'is', null)
+      const { data: jobData } = await supabase.from('jobs').select('title').neq('job_type', 'appointment').not('title', 'is', null)
       const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
       const titles = [...new Set([...(jobData || []).map((r: any) => r.title), ...(invData || []).map((r: any) => r.title)].filter(Boolean))]
       setJobTitles(titles)
@@ -183,13 +187,27 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
   // Auto-fill contact/address when company is selected
   const handleCompanySelect = (company: string) => {
     setSelectedCompany(company)
-    const match = clients.find(c => c.company_name === company)
+    const match = clients.find(c => c.company_name === company || c.contact_name === company)
     if (match) {
       if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
       const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
       if (addr) setClientAddress(addr)
-      setContactNames(clients.filter(c => c.company_name === company).map(c => c.contact_name).filter(Boolean))
+      setContactNames(clients.filter(c => c.company_name === company || c.contact_name === company).map(c => c.contact_name).filter(Boolean))
     }
+  }
+
+  const handleQuickAddSuccess = (newClient: any) => {
+    setClients(prev => [...prev, newClient])
+    const newName = newClient.company_name || newClient.contact_name || ''
+    setCompanyNames(prev => [...new Set([...prev, newName])])
+    setContactNames(prev => [...new Set([...prev, newClient.contact_name || ''])])
+    const newAddr = [newClient.address, newClient.city, newClient.parish].filter(Boolean).join(', ')
+    setAddresses(prev => [...new Set([...prev, newAddr])])
+
+    setSelectedCompany(newName)
+    setContactPerson(newClient.contact_name || '')
+    setClientAddress(newAddr)
+    if (newClient.parish) setLocation(newClient.parish)
   }
 
   const handleTechnicianSelect = (name: string) => {
@@ -221,7 +239,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { toast.error('You must be logged in'); setLoading(false); return }
 
-    const clientRecord = clients.find(c => c.company_name === selectedCompany)
+    const clientRecord = clients.find(c => c.company_name === selectedCompany || c.contact_name === selectedCompany)
     const techRecord = technicians.find(t => t.name === selectedTechnician)
 
     const { error } = await supabase.from('jobs').insert({
@@ -237,8 +255,6 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
       client_id: clientRecord?.id || null,
       technician_id: techRecord?.id || null,
       is_recurring: recurringSchedule !== 'one-time',
-      recurring_frequency: recurringSchedule,
-      is_service_contract: isServiceContract,
       notes: JSON.stringify({
         contact_person: contactPerson,
         location,
@@ -247,10 +263,17 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
         materials,
         tech_charge: techCharge,
         line_items: lineItems,
+        recurring_schedule: recurringSchedule,
+        is_service_contract: isServiceContract,
       }),
     })
 
-    if (error) { toast.error('Failed to create job'); setLoading(false); return }
+    if (error) {
+      console.error('[AddJobDialog] Failed to create job', error)
+      toast.error(error.message || 'Failed to create job')
+      setLoading(false)
+      return
+    }
     toast.success('Job created successfully')
     setOpen(false)
     setLoading(false)
@@ -297,8 +320,9 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
               <Label className={labelCls}>Company / Client</Label>
               <div className="flex gap-1 items-center">
                 <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
-                <button type="button" onClick={() => setSelectedCompany('')}
-                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+                <button type="button" onClick={() => setQuickAddOpen(true)}
+                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
+                  title="Add New Client">
                   <Plus className="h-3.5 w-3.5" />
                 </button>
                 <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setClientAddress('') }}
@@ -532,6 +556,12 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
           </div>
         </form>
       </DialogContent>
+
+      <QuickAddClientDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        onSuccess={handleQuickAddSuccess}
+      />
     </Dialog>
   )
 }

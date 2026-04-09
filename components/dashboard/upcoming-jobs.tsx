@@ -19,6 +19,7 @@ export async function UpcomingJobs() {
   const { data: jobs } = await supabase
     .from('jobs')
     .select('*, clients(contact_name, company_name)')
+    .neq('job_type', 'appointment')
     .gte('scheduled_date', today)
     .in('status', ['pending', 'scheduled'])
     .order('scheduled_date', { ascending: true })

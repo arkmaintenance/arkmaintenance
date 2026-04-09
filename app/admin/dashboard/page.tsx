@@ -50,9 +50,9 @@ export default async function DashboardPage() {
     { data: recentJobs },
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }),
-    supabase.from('jobs').select('*', { count: 'exact', head: true }),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).neq('job_type', 'appointment'),
     supabase.from('technicians').select('*', { count: 'exact', head: true }),
-    supabase.from('jobs').select('*, clients(contact_name, company_name), technicians(name)').order('created_at', { ascending: false }).limit(5),
+    supabase.from('jobs').select('*, clients(contact_name, company_name), technicians(name)').neq('job_type', 'appointment').order('created_at', { ascending: false }).limit(5),
   ])
 
   // Service contracts
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
   const { count: pendingQuotes } = await supabase
     .from('quotations').select('*', { count: 'exact', head: true }).eq('status', 'pending')
   const { count: activeJobs } = await supabase
-    .from('jobs').select('*', { count: 'exact', head: true }).in('status', ['scheduled', 'in-progress'])
+    .from('jobs').select('*', { count: 'exact', head: true }).neq('job_type', 'appointment').in('status', ['scheduled', 'in-progress'])
 
   const stats = {
     totalClients: clientCount || 0,

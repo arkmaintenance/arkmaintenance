@@ -14,6 +14,7 @@ export default async function JobsPage() {
     supabase
       .from('jobs')
       .select('*, clients(contact_name, company_name), technicians(name)')
+      .neq('job_type', 'appointment')
       .order('created_at', { ascending: false }),
     supabase.from('clients').select('id, contact_name, company_name'),
     supabase.from('technicians').select('id, name'),
