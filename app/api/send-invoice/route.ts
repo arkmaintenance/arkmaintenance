@@ -6,7 +6,21 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { to, cc, subject, invoiceData, pdfBase64, pdfFilename, customMessage, emailTitle, greetingName, emailMessage } = body
+    const {
+      to,
+      cc,
+      subject,
+      invoiceData,
+      pdfBase64,
+      pdfFilename,
+      customMessage,
+      emailTitle,
+      greetingName,
+      emailMessage,
+      emailAttachmentNote,
+      emailFollowUpMessage,
+      emailClosingMessage,
+    } = body
 
     if (!to || !invoiceData) {
       return NextResponse.json(
@@ -20,6 +34,9 @@ export async function POST(request: NextRequest) {
       title: emailTitle,
       greetingName,
       message: emailMessage || customMessage,
+      attachmentNote: emailAttachmentNote,
+      followUpMessage: emailFollowUpMessage,
+      closingMessage: emailClosingMessage,
     })
     const emailSubject = subject || `Invoice ${invoiceData.invoice_number} from ${COMPANY_NAME}`
     const fromEmail = `${COMPANY_NAME} <${DEFAULT_FROM_EMAIL}>`
@@ -83,6 +100,9 @@ export async function POST(request: NextRequest) {
           cc: Array.isArray(cc) ? cc : cc ? [cc] : [],
           email_title: emailTitle || null,
           greeting_name: greetingName || null,
+          attachment_note: emailAttachmentNote || null,
+          follow_up_message: emailFollowUpMessage || null,
+          closing_message: emailClosingMessage || null,
         }
       })
     } catch (dbError) {

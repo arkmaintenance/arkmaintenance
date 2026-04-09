@@ -25,6 +25,9 @@ export interface InvoiceEmailContentOptions {
   title?: string
   greetingName?: string
   message?: string
+  attachmentNote?: string
+  followUpMessage?: string
+  closingMessage?: string
 }
 
 function escapeHtml(value: string) {
@@ -49,11 +52,18 @@ function renderParagraphs(message: string) {
     .join('')
 }
 
+function renderInlineText(message: string) {
+  return escapeHtml(message).replace(/\n/g, '<br />')
+}
+
 export function getDefaultInvoiceEmailContent(data: InvoiceEmailData): Required<InvoiceEmailContentOptions> {
   return {
     title: `Invoice ${data.invoice_number}`,
     greetingName: data.client.name?.trim() || 'Client',
     message: `Please find attached your invoice for ${data.service_description}. We appreciate your business and are grateful for the opportunity to serve you.`,
+    attachmentNote: 'Your invoice is attached to this email as a PDF document for your records and easy printing.',
+    followUpMessage: "If you have any questions about this invoice, please don't hesitate to contact us.",
+    closingMessage: 'Thank you for your business!',
   }
 }
 
@@ -72,6 +82,9 @@ export function generateInvoiceEmailHtml(
   const title = (options.title || defaults.title).trim()
   const greetingName = (options.greetingName || defaults.greetingName).trim()
   const message = (options.message || defaults.message).trim()
+  const attachmentNote = (options.attachmentNote || defaults.attachmentNote).trim()
+  const followUpMessage = (options.followUpMessage || defaults.followUpMessage).trim()
+  const closingMessage = (options.closingMessage || defaults.closingMessage).trim()
   const clientLines = [
     data.client.name,
     data.client.company,
@@ -111,34 +124,7 @@ export function generateInvoiceEmailHtml(
         
         ${renderParagraphs(message)}
         
-        <!-- Client + Invoice Summary -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 25px 0;">
-          <tr>
-            <td width="50%" style="vertical-align: top; padding-right: 10px;">
-              <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; height: 100%;">
-                <p style="color: #1a1a2e; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
-                  Client Details
-                </p>
-                ${clientLines.map((line, index) => `
-                <p style="color: ${index === 0 ? '#1f2937' : '#4b5563'}; font-size: 14px; margin: 0 0 6px 0; ${index === 0 ? 'font-weight: 700;' : ''}">
-                  ${escapeHtml(line)}
-                </p>
-                `).join('')}
-              </div>
-            </td>
-            <td width="50%" style="vertical-align: top; padding-left: 10px;">
-              <div style="background-color: #ecfdf5; border: 1px solid #86efac; border-radius: 8px; padding: 16px; height: 100%;">
-                <p style="color: #166534; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
-                  Invoice Summary
-                </p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Invoice:</strong> ${escapeHtml(data.invoice_number)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Date:</strong> ${escapeHtml(data.date)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Payment Terms:</strong> ${escapeHtml(data.payment_terms)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0;"><strong>Balance Due:</strong> JMD ${data.balance_due.toLocaleString()}</p>
-              </div>
-            </td>
-          </tr>
-        </table>
+      
 
         <!-- Attachment Notice -->
         <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 25px;">
@@ -149,7 +135,7 @@ export function generateInvoiceEmailHtml(
               </td>
               <td style="vertical-align: top;">
                 <p style="color: #065f46; font-size: 14px; margin: 0; font-weight: 500;">
-                  Your invoice is attached to this email as a PDF document for your records and easy printing.
+                  ${renderInlineText(attachmentNote)}
                 </p>
               </td>
             </tr>
@@ -157,11 +143,11 @@ export function generateInvoiceEmailHtml(
         </div>
         
         <p style="color: #4b5563; font-size: 16px; margin: 0 0 10px 0;">
-          If you have any questions about this invoice, please don&apos;t hesitate to contact us.
+          ${renderInlineText(followUpMessage)}
         </p>
         
         <p style="color: #4b5563; font-size: 16px; margin: 0;">
-          Thank you for your business!
+          ${renderInlineText(closingMessage)}
         </p>
       </td>
     </tr>

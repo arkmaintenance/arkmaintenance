@@ -25,6 +25,9 @@ export interface QuotationEmailContentOptions {
   title?: string
   greetingName?: string
   message?: string
+  attachmentNote?: string
+  followUpMessage?: string
+  closingMessage?: string
 }
 
 function escapeHtml(value: string) {
@@ -49,11 +52,18 @@ function renderParagraphs(message: string) {
     .join('')
 }
 
+function renderInlineText(message: string) {
+  return escapeHtml(message).replace(/\n/g, '<br />')
+}
+
 export function getDefaultQuotationEmailContent(data: QuotationEmailData): Required<QuotationEmailContentOptions> {
   return {
     title: `Quotation ${data.quote_number}`,
     greetingName: data.client.name?.trim() || 'Client',
     message: `Thank you for your interest in our services. Please find attached your quotation for ${data.service_description}. We look forward to the opportunity to work with you.`,
+    attachmentNote: 'Your detailed quotation is attached to this email as a PDF document for your review.',
+    followUpMessage: "This quotation is valid for 30 days from the date of issue. If you have any questions or would like to proceed, please don't hesitate to contact us.",
+    closingMessage: 'We look forward to hearing from you!',
   }
 }
 
@@ -72,6 +82,9 @@ export function generateQuotationEmailHtml(
   const title = (options.title || defaults.title).trim()
   const greetingName = (options.greetingName || defaults.greetingName).trim()
   const message = (options.message || defaults.message).trim()
+  const attachmentNote = (options.attachmentNote || defaults.attachmentNote).trim()
+  const followUpMessage = (options.followUpMessage || defaults.followUpMessage).trim()
+  const closingMessage = (options.closingMessage || defaults.closingMessage).trim()
   const clientLines = [
     data.client.name,
     data.client.company,
@@ -111,33 +124,7 @@ export function generateQuotationEmailHtml(
         ${renderParagraphs(message)}
         
         <!-- Client + Quotation Summary -->
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 25px 0;">
-          <tr>
-            <td width="50%" style="vertical-align: top; padding-right: 10px;">
-              <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; height: 100%;">
-                <p style="color: #1a1a2e; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
-                  Client Details
-                </p>
-                ${clientLines.map((line, index) => `
-                <p style="color: ${index === 0 ? '#1f2937' : '#4b5563'}; font-size: 14px; margin: 0 0 6px 0; ${index === 0 ? 'font-weight: 700;' : ''}">
-                  ${escapeHtml(line)}
-                </p>
-                `).join('')}
-              </div>
-            </td>
-            <td width="50%" style="vertical-align: top; padding-left: 10px;">
-              <div style="background-color: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; padding: 16px; height: 100%;">
-                <p style="color: #9a3412; font-size: 13px; font-weight: 700; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.8px;">
-                  Quotation Summary
-                </p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Quotation:</strong> ${escapeHtml(data.quote_number)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Date:</strong> ${escapeHtml(data.date)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0 0 6px 0;"><strong>Payment Terms:</strong> ${escapeHtml(data.payment_terms)}</p>
-                <p style="color: #4b5563; font-size: 14px; margin: 0;"><strong>Total:</strong> JMD ${data.total.toLocaleString()}</p>
-              </div>
-            </td>
-          </tr>
-        </table>
+      
         
         <!-- Attachment Notice -->
         <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-bottom: 25px;">
@@ -148,7 +135,7 @@ export function generateQuotationEmailHtml(
               </td>
               <td style="vertical-align: top;">
                 <p style="color: #1e40af; font-size: 14px; margin: 0; font-weight: 500;">
-                  Your detailed quotation is attached to this email as a PDF document for your review.
+                  ${renderInlineText(attachmentNote)}
                 </p>
               </td>
             </tr>
@@ -156,12 +143,11 @@ export function generateQuotationEmailHtml(
         </div>
         
         <p style="color: #4b5563; font-size: 16px; margin: 0 0 15px 0;">
-          This quotation is valid for 30 days from the date of issue. If you have any questions or would like to proceed, 
-          please don&apos;t hesitate to contact us.
+          ${renderInlineText(followUpMessage)}
         </p>
         
         <p style="color: #4b5563; font-size: 16px; margin: 0;">
-          We look forward to hearing from you!
+          ${renderInlineText(closingMessage)}
         </p>
       </td>
     </tr>

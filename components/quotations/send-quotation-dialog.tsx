@@ -71,6 +71,9 @@ export function SendQuotationDialog({
   const [emailTitle, setEmailTitle] = useState('')
   const [greetingName, setGreetingName] = useState('')
   const [emailMessage, setEmailMessage] = useState('')
+  const [attachmentNote, setAttachmentNote] = useState('')
+  const [followUpMessage, setFollowUpMessage] = useState('')
+  const [closingMessage, setClosingMessage] = useState('')
   const [activeTab, setActiveTab] = useState('compose')
 
   const pdfFilename = `Quote-${quotationData.quote_number}${quotationData.service_description ? `-${quotationData.service_description}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
@@ -110,6 +113,9 @@ export function SendQuotationDialog({
       setEmailTitle(defaultEmailContent.title)
       setGreetingName(defaultEmailContent.greetingName)
       setEmailMessage(defaultEmailContent.message)
+      setAttachmentNote(defaultEmailContent.attachmentNote)
+      setFollowUpMessage(defaultEmailContent.followUpMessage)
+      setClosingMessage(defaultEmailContent.closingMessage)
       setActiveTab('compose')
     }
   }, [open, clientEmail, quotationData.client.email, quotationData.client.name, quotationData.quote_number, quotationData.service_description, defaultSubject])
@@ -210,6 +216,9 @@ export function SendQuotationDialog({
           emailTitle,
           greetingName,
           emailMessage,
+          emailAttachmentNote: attachmentNote,
+          emailFollowUpMessage: followUpMessage,
+          emailClosingMessage: closingMessage,
         }),
       })
 
@@ -233,9 +242,83 @@ export function SendQuotationDialog({
     title: emailTitle,
     greetingName,
     message: emailMessage,
+    attachmentNote,
+    followUpMessage,
+    closingMessage,
   })
   const recipientDisplay = recipientEmails.length > 0 ? formatEmailList(recipientEmails) : 'No recipients specified'
   const ccDisplay = ccEmails.length > 0 ? formatEmailList(ccEmails) : ''
+
+  const renderTemplateEditor = (prefix: string, compact = false) => (
+    <div className={compact ? 'space-y-3' : 'space-y-4'}>
+      <div className={compact ? 'space-y-3' : 'grid gap-4 lg:grid-cols-2'}>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}-email-title`}>Email Heading</Label>
+          <Input
+            id={`${prefix}-email-title`}
+            value={emailTitle}
+            onChange={(e) => setEmailTitle(e.target.value)}
+            placeholder="Quotation heading"
+            className="bg-input border-border"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}-greeting-name`}>Greeting Name</Label>
+          <Input
+            id={`${prefix}-greeting-name`}
+            value={greetingName}
+            onChange={(e) => setGreetingName(e.target.value)}
+            placeholder="Contact person name"
+            className="bg-input border-border"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}-message`}>Main Message</Label>
+        <Textarea
+          id={`${prefix}-message`}
+          value={emailMessage}
+          onChange={(e) => setEmailMessage(e.target.value)}
+          placeholder="Edit the opening email body before sending..."
+          className={`bg-input border-border ${compact ? 'min-h-[110px]' : 'min-h-[160px]'}`}
+        />
+      </div>
+
+      <div className={compact ? 'space-y-3' : 'grid gap-4 xl:grid-cols-3'}>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}-attachment-note`}>Attachment Note</Label>
+          <Textarea
+            id={`${prefix}-attachment-note`}
+            value={attachmentNote}
+            onChange={(e) => setAttachmentNote(e.target.value)}
+            placeholder="Attachment notice text"
+            className={`bg-input border-border ${compact ? 'min-h-[90px]' : 'min-h-[110px]'}`}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}-follow-up-message`}>Follow-up Message</Label>
+          <Textarea
+            id={`${prefix}-follow-up-message`}
+            value={followUpMessage}
+            onChange={(e) => setFollowUpMessage(e.target.value)}
+            placeholder="Validity/help text"
+            className={`bg-input border-border ${compact ? 'min-h-[90px]' : 'min-h-[110px]'}`}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}-closing-message`}>Closing Message</Label>
+          <Textarea
+            id={`${prefix}-closing-message`}
+            value={closingMessage}
+            onChange={(e) => setClosingMessage(e.target.value)}
+            placeholder="Closing/sign-off text"
+            className={`bg-input border-border ${compact ? 'min-h-[90px]' : 'min-h-[110px]'}`}
+          />
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -360,39 +443,7 @@ export function SendQuotationDialog({
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="email-title">Email Heading</Label>
-                <Input
-                  id="email-title"
-                  value={emailTitle}
-                  onChange={(e) => setEmailTitle(e.target.value)}
-                  placeholder="Quotation heading"
-                  className="bg-input border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="greeting-name">Greeting Name</Label>
-                <Input
-                  id="greeting-name"
-                  value={greetingName}
-                  onChange={(e) => setGreetingName(e.target.value)}
-                  placeholder="Contact person name"
-                  className="bg-input border-border"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="message">Email Message</Label>
-              <Textarea
-                id="message"
-                value={emailMessage}
-                onChange={(e) => setEmailMessage(e.target.value)}
-                placeholder="Edit the email body before sending..."
-                className="bg-input border-border min-h-[160px]"
-              />
-            </div>
+            {renderTemplateEditor('compose')}
 
             {/* PDF Attachment Status */}
             <Card className={`border-2 ${
@@ -460,19 +511,32 @@ export function SendQuotationDialog({
 
           <TabsContent value="preview-email" className="flex-1 overflow-hidden mt-4">
             <Card className="h-full overflow-hidden border-border">
-              <CardContent className="p-0 h-full flex flex-col">
-                <div className="bg-secondary/30 px-4 py-2 border-b border-border shrink-0">
-                  <p className="text-sm"><span className="text-muted-foreground">To:</span> {recipientDisplay}</p>
-                  {ccDisplay && <p className="text-sm"><span className="text-muted-foreground">Cc:</span> {ccDisplay}</p>}
-                  <p className="text-sm"><span className="text-muted-foreground">Subject:</span> {subject}</p>
-                  <p className="text-sm"><span className="text-muted-foreground">Attachment:</span> {pdfFilename}</p>
+              <CardContent className="p-0 h-full grid lg:grid-cols-[360px_minmax(0,1fr)]">
+                <div className="border-b lg:border-b-0 lg:border-r border-border overflow-auto p-4 bg-secondary/10">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium">Edit Template</p>
+                      <p className="text-xs text-muted-foreground">
+                        Changes here update the preview and the sent email.
+                      </p>
+                    </div>
+                    {renderTemplateEditor('preview', true)}
+                  </div>
                 </div>
-                <div className="overflow-auto flex-1">
-                  <iframe
-                    srcDoc={emailPreviewHtml}
-                    className="w-full h-full border-0"
-                    title="Email Preview"
-                  />
+                <div className="min-w-0 flex flex-col overflow-hidden">
+                  <div className="bg-secondary/30 px-4 py-2 border-b border-border shrink-0">
+                    <p className="text-sm"><span className="text-muted-foreground">To:</span> {recipientDisplay}</p>
+                    {ccDisplay && <p className="text-sm"><span className="text-muted-foreground">Cc:</span> {ccDisplay}</p>}
+                    <p className="text-sm"><span className="text-muted-foreground">Subject:</span> {subject}</p>
+                    <p className="text-sm"><span className="text-muted-foreground">Attachment:</span> {pdfFilename}</p>
+                  </div>
+                  <div className="overflow-auto flex-1">
+                    <iframe
+                      srcDoc={emailPreviewHtml}
+                      className="w-full h-full border-0"
+                      title="Email Preview"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
