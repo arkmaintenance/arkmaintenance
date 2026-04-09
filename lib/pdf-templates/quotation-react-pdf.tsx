@@ -720,8 +720,8 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
               <Svg style={styles.tableHeaderGradient} viewBox="0 0 100 25" preserveAspectRatio="none">
                 <Defs>
                   <LinearGradient id="quotationTableHeaderGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <Stop offset="0%" stopColor="#00BFFF" />
-                    <Stop offset="50%" stopColor="#809580" />
+                    <Stop offset="0%" stopColor="#FF6B00" />
+                    <Stop offset="50%" stopColor="#FF6B00" />
                     <Stop offset="100%" stopColor="#FF6B00" />
                   </LinearGradient>
                 </Defs>

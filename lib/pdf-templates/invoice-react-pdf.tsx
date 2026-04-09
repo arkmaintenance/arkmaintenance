@@ -502,8 +502,8 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
             <Svg style={styles.tableHeaderGradient} viewBox="0 0 100 24" preserveAspectRatio="none">
               <Defs>
                 <LinearGradient id="invoiceTableHeaderGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <Stop offset="0%" stopColor="#22B8FF" />
-                  <Stop offset="44%" stopColor="#B99587" />
+                  <Stop offset="0%" stopColor="#FF6B00" />
+                  <Stop offset="44%" stopColor="#FF6B00" />
                   <Stop offset="100%" stopColor="#FF6B00" />
                 </LinearGradient>
               </Defs>
