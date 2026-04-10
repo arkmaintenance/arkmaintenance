@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { SendInvoiceDialog } from '@/components/invoices/send-invoice-dialog'
 import { downloadInvoicePdf } from '@/lib/client-pdf-download'
 import { getInvoiceJobSubject } from '@/lib/invoice-job-subject'
+import { buildServiceDescription } from '@/lib/service-description'
 import { 
   Search, 
   Eye,
@@ -142,6 +143,7 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
           balance_due,
           issued_date,
           created_at,
+          notes,
           clients (
             contact_name,
             company_name,
@@ -163,14 +165,25 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
         unit_price: Number(item.unit_price || item.rate || 0),
         amount: Number(item.amount || 0),
       }))
+      let parsedNotes: any = {}
+      try { parsedNotes = typeof data.notes === 'string' ? JSON.parse(data.notes) : {} } catch {}
 
       const subtotal = Number(data.subtotal) || items.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0)
       const total = Number(data.total) || subtotal
       const balanceDue = Number(data.balance_due) || total
+      const serviceDescription = buildServiceDescription(
+        getInvoiceJobSubject(data.title, {
+          invoiceNumber: data.invoice_number,
+          clientName: data.clients?.contact_name,
+          companyName: data.clients?.company_name,
+        }),
+        parsedNotes.service_location,
+        'AIR CONDITIONER SERVICING AND MAINTENANCE',
+      )
 
       const dateStr = new Date(data.issued_date || data.created_at).toISOString().split('T')[0]
       const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
-      const jobDesc = data.title || ''
+      const jobDesc = serviceDescription
       const safeFileName = `${data.invoice_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadInvoicePdf({
@@ -181,11 +194,7 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
           day: 'numeric',
         }),
         payment_terms: 'COD',
-        service_description: getInvoiceJobSubject(data.title, {
-          invoiceNumber: data.invoice_number,
-          clientName: data.clients?.contact_name,
-          companyName: data.clients?.company_name,
-        }),
+        service_description: serviceDescription,
         client: {
           name: data.clients?.contact_name || 'Client',
           company: data.clients?.company_name || '',

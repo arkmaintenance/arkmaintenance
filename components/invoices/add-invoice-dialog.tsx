@@ -376,9 +376,12 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Service Location</Label>
               <div className="flex gap-1 items-center">
-                <Combobox value={serviceLocation} onChange={setServiceLocation}
-                  options={['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville']}
-                  placeholder="Select location..." />
+                <Input
+                  value={serviceLocation}
+                  onChange={e => setServiceLocation(e.target.value)}
+                  placeholder="Enter service location..."
+                  className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
+                />
                 <button type="button" onClick={() => setServiceLocation('')}
                   className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
                   <Minus className="h-3.5 w-3.5" />

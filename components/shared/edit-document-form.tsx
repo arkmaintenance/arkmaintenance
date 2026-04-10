@@ -698,10 +698,25 @@ export function EditDocumentForm({
         <ClearableField label="Contact Person" value={contactPerson} onChange={setContactPerson}
           options={contactNames} placeholder="Select or type contact name...">
         </ClearableField>
-        <ClearableField label="Service Location" value={serviceLocation} onChange={setServiceLocation}
-          options={['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville']}
-          placeholder="Select location...">
-        </ClearableField>
+        <div className="space-y-1">
+          <Label className="text-gray-300 text-sm font-medium">Service Location</Label>
+          <div className="flex gap-1 items-center">
+            <Input
+              value={serviceLocation}
+              onChange={e => setServiceLocation(e.target.value)}
+              placeholder="Enter service location..."
+              className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1 placeholder:text-gray-500"
+            />
+            <button
+              type="button"
+              title="Clear field"
+              onClick={() => setServiceLocation('')}
+              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Row 3: Address ── */}

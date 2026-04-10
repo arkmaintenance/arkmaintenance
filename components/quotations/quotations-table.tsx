@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { downloadQuotationPdf } from '@/lib/client-pdf-download'
+import { buildServiceDescription } from '@/lib/service-description'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { 
   Search, 
@@ -124,6 +125,7 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
           subtotal,
           total,
           created_at,
+          notes,
           payment_terms,
           is_service_contract,
           recurring_schedule,
@@ -151,13 +153,20 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
         discount: Number(item.discount || 0),
         amount: Number(item.amount || 0),
       }))
+      let parsedNotes: any = {}
+      try { parsedNotes = typeof data.notes === 'string' ? JSON.parse(data.notes) : {} } catch {}
 
       const subtotal = Number(data.subtotal) || items.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0)
       const total = Number(data.total) || subtotal
+      const serviceDescription = buildServiceDescription(
+        data.title,
+        parsedNotes.service_location,
+        'SERVICE QUOTATION',
+      )
 
       const dateStr = new Date(data.created_at).toISOString().split('T')[0]
       const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
-      const jobDesc = data.title || ''
+      const jobDesc = serviceDescription
       const safeFileName = `Quote-${data.quote_number}${jobDesc ? `-${jobDesc}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadQuotationPdf({
@@ -168,7 +177,7 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
           day: 'numeric',
         }),
         payment_terms: '50% Deposit Required',
-        service_description: data.title || 'SERVICE QUOTATION',
+        service_description: serviceDescription,
         timeline: data.description || '3-5 Days',
         client: {
           name: data.clients?.contact_name || 'Client',
