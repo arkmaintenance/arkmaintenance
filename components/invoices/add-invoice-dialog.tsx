@@ -181,7 +181,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
     { id: '1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }
   ])
   const [notes, setNotes] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState('INV-100600')
+  const [invoiceNumber, setInvoiceNumber] = useState('INV-100700')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   // Load full clients + services from DB when dialog opens
