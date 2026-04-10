@@ -25,11 +25,13 @@ interface InvoiceItem {
 
 interface Invoice {
   id: string
+  client_id: string | null
   invoice_number: string
   title: string
   items: InvoiceItem[]
   subtotal: number
   total: number
+  amount_paid: number | null
   balance_due: number
   status: string
   due_date: string
@@ -66,6 +68,32 @@ export default function InvoicePreviewPage() {
     clientName: invoice?.clients?.contact_name,
     companyName: invoice?.clients?.company_name,
   })
+  const resolveClientBySelection = async (selection: string) => {
+    const trimmedSelection = selection.trim()
+
+    if (!trimmedSelection) {
+      return null
+    }
+
+    const clientFields = 'id, contact_name, company_name, address, city, parish, email, phone'
+    const { data: companyMatches } = await supabase
+      .from('clients')
+      .select(clientFields)
+      .eq('company_name', trimmedSelection)
+      .limit(1)
+
+    if (companyMatches?.[0]) {
+      return companyMatches[0]
+    }
+
+    const { data: contactMatches } = await supabase
+      .from('clients')
+      .select(clientFields)
+      .eq('contact_name', trimmedSelection)
+      .limit(1)
+
+    return contactMatches?.[0] ?? null
+  }
 
   useEffect(() => {
     async function fetchInvoice() {
@@ -106,7 +134,7 @@ export default function InvoicePreviewPage() {
         title: getInvoiceJobSubject(data.title, { invoiceNumber: data.invoice_number, clientName: data.clients?.contact_name, companyName: data.clients?.company_name }),
         notes: parsedNotes.notes || (typeof data.notes === 'string' && !data.notes.startsWith('{') ? data.notes : '') || '',
         timeline: parsedNotes.job_timeline || '',
-        contactPerson: parsedNotes.contact_person || '',
+        contactPerson: parsedNotes.contact_person || data.clients?.contact_name || '',
         serviceLocation: parsedNotes.service_location || '',
         address: parsedNotes.address || data.clients?.address || '',
         paymentTerms: parsedNotes.payment_terms || 'COD',
@@ -123,7 +151,7 @@ export default function InvoicePreviewPage() {
         dueDate: data.due_date ? data.due_date.split('T')[0] : '',
         status: data.status || 'draft',
         items: normalizedItems,
-        selectedClientId: data.clients?.company_name || '',
+        selectedClientId: data.clients?.company_name || data.clients?.contact_name || '',
       })
       setClientEmail(data.clients?.email)
       setLoading(false)
@@ -144,34 +172,78 @@ export default function InvoicePreviewPage() {
     const cleanedTitle = getCleanInvoiceTitle(values.title)
     const recalculatedItems = values.items.map(item => ({ ...item, amount: item.qty * item.unit_price - (item.discount || 0) }))
     const subtotal = recalculatedItems.reduce((sum, item) => sum + (item.section ? 0 : item.amount), 0)
+    const matchedClient = await resolveClientBySelection(values.selectedClientId)
+    const previousAmountPaid = Math.max(
+      0,
+      Number(invoice.amount_paid || 0),
+      Number(invoice.total || 0) - Number(invoice.balance_due || 0),
+    )
+    const nextAmountPaid = values.status === 'paid'
+      ? subtotal
+      : Math.min(subtotal, previousAmountPaid)
+    const nextBalanceDue = Math.max(0, subtotal - nextAmountPaid)
+    const nextClientId = values.selectedClientId.trim()
+      ? matchedClient?.id ?? invoice.client_id ?? null
+      : null
+    const nextNotes = JSON.stringify({
+      contact_person: values.contactPerson,
+      service_location: values.serviceLocation,
+      address: values.address,
+      payment_terms: values.paymentTerms,
+      payment_method: values.paymentMethod,
+      po_number: values.poNumber,
+      trn: values.trn,
+      job_timeline: values.timeline,
+      is_service_contract: values.isServiceContract,
+      recurring_schedule: values.recurringSchedule,
+      notes: values.notes,
+    })
 
     const { error } = await supabase.from('invoices').update({
+      client_id: nextClientId,
       title: cleanedTitle,
       items: recalculatedItems,
       subtotal,
       total: subtotal,
-      balance_due: subtotal - (Number(invoice.total) - Number(invoice.balance_due)),
+      amount_paid: nextAmountPaid,
+      balance_due: nextBalanceDue,
+      status: values.status,
       issued_date: values.issuedDate || invoice.issued_date,
       due_date: values.dueDate || invoice.due_date,
-      notes: JSON.stringify({
-        contact_person: values.contactPerson,
-        service_location: values.serviceLocation,
-        address: values.address,
-        payment_terms: values.paymentTerms,
-        payment_method: values.paymentMethod,
-        po_number: values.poNumber,
-        trn: values.trn,
-        job_timeline: values.timeline,
-        is_service_contract: values.isServiceContract,
-        recurring_schedule: values.recurringSchedule,
-        notes: values.notes,
-      }),
+      notes: nextNotes,
     }).eq('id', invoice.id)
 
     if (error) { toast.error('Failed to save changes'); setSaving(false); return }
 
-    setInvoice({ ...invoice, title: cleanedTitle, items: recalculatedItems as any, subtotal, total: subtotal, balance_due: subtotal - (Number(invoice.total) - Number(invoice.balance_due)) })
+    setInvoice({
+      ...invoice,
+      client_id: nextClientId,
+      title: cleanedTitle,
+      items: recalculatedItems as any,
+      subtotal,
+      total: subtotal,
+      amount_paid: nextAmountPaid,
+      balance_due: nextBalanceDue,
+      status: values.status,
+      issued_date: values.issuedDate || invoice.issued_date,
+      due_date: values.dueDate || invoice.due_date,
+      notes: nextNotes,
+      clients: values.selectedClientId.trim()
+        ? matchedClient
+          ? {
+              contact_name: matchedClient.contact_name,
+              company_name: matchedClient.company_name,
+              address: matchedClient.address,
+              city: matchedClient.city,
+              parish: matchedClient.parish,
+              email: matchedClient.email,
+              phone: matchedClient.phone,
+            }
+          : invoice.clients
+        : null,
+    })
     setEditFormValues(values)
+    setClientEmail(values.selectedClientId.trim() ? matchedClient?.email : undefined)
     toast.success('Invoice updated successfully')
     setIsEditing(false)
     setSaving(false)
@@ -216,7 +288,7 @@ export default function InvoicePreviewPage() {
     const newNum = `INV-${String((count || 0) + 100001).padStart(6, '0')}`
     const { error } = await supabase.from('invoices').insert({
       user_id: user.id,
-      client_id: (invoice as any).client_id || null,
+      client_id: invoice.client_id || null,
       invoice_number: newNum,
       title: getCleanInvoiceTitle(invoice.title),
       items: invoice.items,
@@ -301,7 +373,7 @@ export default function InvoicePreviewPage() {
     timeline: editFormValues?.timeline || '3 Days',
     client: {
       name: editFormValues?.contactPerson || invoice.clients?.contact_name || 'Client',
-      company: invoice.clients?.company_name || '',
+      company: editFormValues?.selectedClientId || invoice.clients?.company_name || '',
       address: editFormValues?.address || invoice.clients?.address || '',
       city: invoice.clients?.city || '',
       parish: invoice.clients?.parish || '',
