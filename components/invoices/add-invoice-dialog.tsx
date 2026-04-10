@@ -136,14 +136,28 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
     { id: '1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }
   ])
   const [notes, setNotes] = useState('')
-
-  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`
+  const [invoiceNumber, setInvoiceNumber] = useState('')
 
   // Load clients + services from DB when dialog opens
   useEffect(() => {
     if (!open) return
     console.log('[v0] AddInvoiceDialog opened, loading data...')
     async function load() {
+      // Generate next invoice number (starting from 100700 minimum)
+      const { data: lastInv } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .order('invoice_number', { ascending: false })
+        .limit(1)
+      let nextNum = 100700
+      if (lastInv && lastInv.length > 0) {
+        const lastNum = parseInt(lastInv[0].invoice_number.replace(/\D/g, ''), 10)
+        if (!isNaN(lastNum) && lastNum >= nextNum) {
+          nextNum = lastNum + 1
+        }
+      }
+      setInvoiceNumber(`INV-${nextNum}`)
+
       const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish, trn').order('company_name')
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
@@ -252,7 +266,7 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice #</Label>
-              <div className="h-9 flex items-center px-3 rounded-md border border-[#00BCD4] bg-[#00BCD4]/10 text-[#00BCD4] font-bold text-sm">{invoiceNumber}</div>
+              <div className="h-9 flex items-center px-3 rounded-md border border-[#00BCD4] bg-[#00BCD4]/10 text-[#00BCD4] font-bold text-sm">{invoiceNumber || 'Generating...'}</div>
             </div>
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice Date</Label>
