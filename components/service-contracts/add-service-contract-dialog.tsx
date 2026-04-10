@@ -304,9 +304,14 @@ export function AddServiceContractDialog({ clients: initialClients }: AddService
         }
         setContractNumber(`SC-${nextNum}`)
 
+        const { data: jobData } = await supabase.from('jobs').select('title').not('title', 'is', null)
         const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
         const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
-        const titles = [...new Set([...(invData || []).map((r: any) => r.title), ...(quoteData || []).map((r: any) => r.title)].filter(Boolean))]
+        const titles = [...new Set([
+          ...(jobData || []).map((r: any) => r.title),
+          ...(invData || []).map((r: any) => r.title),
+          ...(quoteData || []).map((r: any) => r.title)
+        ].filter(Boolean))]
         setJobTitles(titles)
       } catch (err) {
         console.error('[v0] Background load failed:', err)

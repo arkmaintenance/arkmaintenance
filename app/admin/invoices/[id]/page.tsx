@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { InvoiceTemplate } from '@/components/templates/invoice-template'
 import { downloadInvoicePdf, printInvoicePdf } from '@/lib/client-pdf-download'
 import { getInvoiceJobSubject } from '@/lib/invoice-job-subject'
+import { buildWhatsAppSendUrl } from '@/lib/job-whatsapp'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { EditDocumentForm, type EditFormValues } from '@/components/shared/edit-document-form'
@@ -40,6 +41,7 @@ interface Invoice {
     city: string
     parish: string
     email: string
+    phone: string | null
   } | null
 }
 
@@ -76,7 +78,8 @@ export default function InvoicePreviewPage() {
             address,
             city,
             parish,
-            email
+            email,
+            phone
           )
         `)
         .eq('id', params.id)
@@ -258,8 +261,10 @@ export default function InvoicePreviewPage() {
     }
   }
 
-  const whatsappMessage = invoice ? encodeURIComponent(`Hi, please find your invoice ${invoice.invoice_number} for JMD ${Number(invoice.total).toLocaleString()}. Thank you.`) : ''
-  const whatsappUrl = `https://wa.me/?text=${whatsappMessage}`
+  const whatsappMessage = invoice
+    ? `Hi, please find your invoice ${invoice.invoice_number} for JMD ${Number(invoice.total).toLocaleString()}. Thank you.`
+    : ''
+  const whatsappUrl = buildWhatsAppSendUrl(whatsappMessage, invoice?.clients?.phone)
 
   // Calculate subtotal and total from current form values
   const activeItems = editFormValues?.items || []

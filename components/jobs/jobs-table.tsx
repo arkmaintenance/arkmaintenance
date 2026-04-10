@@ -16,12 +16,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Search, Eye, Pencil, Trash2, ArrowUpDown, RefreshCw } from 'lucide-react'
+import { Search, Eye, Pencil, Trash2, ArrowUpDown, RefreshCw, MessageCircle } from 'lucide-react'
+import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
 
 interface Job {
   id: string
   title: string
   description: string | null
+  notes?: unknown
   job_type: string
   status: string
   priority: string
@@ -30,13 +32,31 @@ interface Job {
   address: string | null
   is_recurring?: boolean
   recurring_frequency?: string | null
-  clients: { contact_name: string; company_name: string | null } | null
+  clients: { contact_name: string; company_name: string | null; phone: string | null } | null
   technicians: { name: string } | null
   created_at: string
 }
 
 interface JobsTableProps {
   jobs: Job[]
+}
+
+function asText(value: unknown) {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
+function parseNotes(notes: unknown) {
+  if (!notes) return {}
+  if (typeof notes === 'object' && !Array.isArray(notes)) return notes as Record<string, unknown>
+  if (typeof notes !== 'string') return {}
+
+  try {
+    return JSON.parse(notes) as Record<string, unknown>
+  } catch {
+    return {}
+  }
 }
 
 const statusColors: Record<string, string> = {
@@ -86,6 +106,29 @@ export function JobsTable({ jobs }: JobsTableProps) {
     const { error } = await supabase.from('jobs').delete().eq('id', id)
     if (error) { toast.error('Failed to delete job'); return }
     toast.success('Job deleted'); router.refresh()
+  }
+
+  function handleShare(job: Job) {
+    const parsedNotes = parseNotes(job.notes)
+    const whatsappUrl = buildJobWhatsAppUrl({
+      phone: asText(parsedNotes.whatsapp_number) || job.clients?.phone,
+      title: job.title,
+      clientName: job.clients?.company_name || job.clients?.contact_name,
+      contactPerson: job.clients?.contact_name,
+      scheduledDate: job.scheduled_date,
+      scheduledTime: job.scheduled_time,
+      address: job.address,
+      technicianName: job.technicians?.name,
+      status: job.status,
+      description: job.description,
+    })
+
+    if (!whatsappUrl) {
+      toast.error('Client phone number is required to share on WhatsApp')
+      return
+    }
+
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
   }
 
   function SortHead({ field, children }: { field: SortField; children: React.ReactNode }) {
@@ -194,6 +237,14 @@ export function JobsTable({ jobs }: JobsTableProps) {
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost" size="icon"
+                          className="h-7 w-7 text-emerald-500 hover:text-emerald-400"
+                          onClick={() => handleShare(job)}
+                          title="Share to WhatsApp"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           onClick={() => router.push(`/admin/jobs/${job.id}`)}
                           title="View"
@@ -203,6 +254,7 @@ export function JobsTable({ jobs }: JobsTableProps) {
                         <Button
                           variant="ghost" size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => router.push(`/admin/jobs/${job.id}/edit`)}
                           title="Edit"
                         >
                           <Pencil className="h-3.5 w-3.5" />

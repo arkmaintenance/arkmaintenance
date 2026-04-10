@@ -11,8 +11,9 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Plus, Minus, Loader2, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, Minus, Loader2, Trash2, ChevronDown, MessageCircle } from 'lucide-react'
 import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
+import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
 
 // ─── Inline Combobox (portal-based) ──────────────────────────────────────────
 
@@ -100,7 +101,7 @@ const Combobox = forwardRef<HTMLInputElement, {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Client { id: string; contact_name: string; company_name: string | null; address?: string; city?: string; parish?: string }
+interface Client { id: string; contact_name: string; company_name: string | null; phone?: string | null; address?: string; city?: string; parish?: string }
 interface Technician { id: string; name: string }
 interface ServiceOption { name: string; base_price: number }
 interface LineItem { id: string; description: string; quantity: number; unit_price: number }
@@ -123,13 +124,14 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
   const [technicianNames, setTechnicianNames] = useState<string[]>([])
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
   const [serviceNames, setServiceNames] = useState<string[]>([])
-  const [jobTitles, setJobTitles] = useState<string[]>([])
+
   const [locations] = useState(['Kingston', 'St. Andrew', 'St. Catherine', 'Portmore', 'Montego Bay', 'Ocho Rios', 'Mandeville'])
 
   // Form state
   const [selectedCompany, setSelectedCompany] = useState('')
   const [selectedTechnician, setSelectedTechnician] = useState('')
   const [contactPerson, setContactPerson] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [clientAddress, setClientAddress] = useState('')
   const [techCharge, setTechCharge] = useState('')
   const [location, setLocation] = useState('')
@@ -155,7 +157,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     if (!open) return
     console.log('[v0] AddJobDialog opened, loading data...')
     async function load() {
-      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name')
+      const { data: clientData, error: clientError } = await supabase.from('clients').select('id, contact_name, company_name, phone, address, city, parish').order('company_name')
       console.log('[v0] Clients loaded:', clientData?.length, 'error:', clientError)
       if (clientData) {
         const safeClients = clientData as Client[]
@@ -176,10 +178,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
         setServiceOptions(safeServices.map((service) => ({ name: service.name, base_price: Number(service.base_price) })))
         setServiceNames(safeServices.map((service) => service.name))
       }
-      const { data: jobData } = await supabase.from('jobs').select('title').neq('job_type', 'appointment').not('title', 'is', null)
-      const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
-      const titles = [...new Set([...(jobData || []).map((r: any) => r.title), ...(invData || []).map((r: any) => r.title)].filter(Boolean))]
-      setJobTitles(titles)
+
     }
     load()
   }, [open])
@@ -190,6 +189,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     const match = clients.find(c => c.company_name === company || c.contact_name === company)
     if (match) {
       if (match.contact_name && !contactPerson) setContactPerson(match.contact_name)
+      setWhatsappNumber(match.phone || '')
       const addr = [match.address, match.city, match.parish].filter(Boolean).join(', ')
       if (addr) setClientAddress(addr)
       setContactNames(clients.filter(c => c.company_name === company || c.contact_name === company).map(c => c.contact_name).filter(Boolean))
@@ -206,6 +206,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
 
     setSelectedCompany(newName)
     setContactPerson(newClient.contact_name || '')
+    setWhatsappNumber(newClient.phone || '')
     setClientAddress(newAddr)
     if (newClient.parish) setLocation(newClient.parish)
   }
@@ -231,16 +232,40 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     setLineItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!jobTitle) { toast.error('Job title is required'); return }
-    setLoading(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { toast.error('You must be logged in'); setLoading(false); return }
+  async function submitJob(options: { shareToWhatsApp: boolean }) {
+    if (!jobTitle.trim()) { toast.error('Job title is required'); return }
 
     const clientRecord = clients.find(c => c.company_name === selectedCompany || c.contact_name === selectedCompany)
     const techRecord = technicians.find(t => t.name === selectedTechnician)
+    const whatsappUrl = options.shareToWhatsApp ? buildJobWhatsAppUrl({
+      phone: whatsappNumber || clientRecord?.phone,
+      title: jobTitle,
+      clientName: clientRecord?.company_name || clientRecord?.contact_name || selectedCompany,
+      contactPerson: contactPerson || clientRecord?.contact_name,
+      scheduledDate: scheduledDate || null,
+      scheduledTime: scheduledTime || null,
+      address: clientAddress || null,
+      technicianName: techRecord?.name || selectedTechnician,
+      status,
+      description: specialNotes || null,
+      lineItems,
+    }) : null
+
+    if (options.shareToWhatsApp && !whatsappUrl) {
+      toast.error('Select a client with a phone number before sharing to WhatsApp')
+      return
+    }
+
+    const pendingWindow = whatsappUrl ? window.open('', '_blank') : null
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      if (pendingWindow) pendingWindow.close()
+      toast.error('You must be logged in')
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase.from('jobs').insert({
       user_id: user.id,
@@ -257,6 +282,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
       is_recurring: recurringSchedule !== 'one-time',
       notes: JSON.stringify({
         contact_person: contactPerson,
+        whatsapp_number: whatsappNumber.trim(),
         location,
         department,
         supplier,
@@ -269,15 +295,27 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     })
 
     if (error) {
+      if (pendingWindow) pendingWindow.close()
       console.error('[AddJobDialog] Failed to create job', error)
       toast.error(error.message || 'Failed to create job')
       setLoading(false)
       return
     }
-    toast.success('Job created successfully')
+
+    if (whatsappUrl) {
+      if (pendingWindow) pendingWindow.location.href = whatsappUrl
+      else window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+    }
+
+    toast.success(whatsappUrl ? 'Job created and opened in WhatsApp' : 'Job created successfully')
     setOpen(false)
     setLoading(false)
     router.refresh()
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    void submitJob({ shareToWhatsApp: false })
   }
 
   const labelCls = 'text-gray-400 text-xs uppercase tracking-wide font-medium'
@@ -302,11 +340,12 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
           <div className="space-y-1.5">
             <Label className={labelCls}>Job Title *</Label>
             <div className="flex gap-1 items-center">
-              <Combobox value={jobTitle} onChange={setJobTitle} options={jobTitles} placeholder="Type or select job title" />
-              <button type="button" onClick={() => setJobTitle('')}
-                className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+              <Input
+                value={jobTitle}
+                onChange={e => setJobTitle(e.target.value)}
+                placeholder="Type job title..."
+                className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500"
+              />
               <button type="button" onClick={() => setJobTitle('')}
                 className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
                 <Minus className="h-3.5 w-3.5" />
@@ -325,7 +364,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
                   title="Add New Client">
                   <Plus className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setClientAddress('') }}
+                <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setWhatsappNumber(''); setClientAddress('') }}
                   className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
                   <Minus className="h-3.5 w-3.5" />
                 </button>
@@ -343,15 +382,32 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
             </div>
           </div>
 
-          {/* Row 3: Client Address */}
-          <div className="space-y-1.5">
-            <Label className={labelCls}>Client Address</Label>
-            <div className="flex gap-1 items-center">
-              <Combobox value={clientAddress} onChange={setClientAddress} options={addresses} placeholder="Select or type address..." />
-              <button type="button" onClick={() => setClientAddress('')}
-                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                <Minus className="h-3.5 w-3.5" />
-              </button>
+          {/* Row 3: WhatsApp Number + Client Address */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className={labelCls}>WhatsApp Number</Label>
+              <div className="flex gap-1 items-center">
+                <Input
+                  value={whatsappNumber}
+                  onChange={e => setWhatsappNumber(e.target.value)}
+                  placeholder="Client WhatsApp number"
+                  className="bg-[#1e2235] border-[#2d3352] text-white flex-1 placeholder:text-gray-500"
+                />
+                <button type="button" onClick={() => setWhatsappNumber('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Client Address</Label>
+              <div className="flex gap-1 items-center">
+                <Combobox value={clientAddress} onChange={setClientAddress} options={addresses} placeholder="Select or type address..." />
+                <button type="button" onClick={() => setClientAddress('')}
+                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -550,6 +606,9 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-[#2d3352] text-white hover:bg-[#1e2235]">Cancel</Button>
+            <Button type="button" disabled={loading} onClick={() => void submitJob({ shareToWhatsApp: true })} className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6">
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : <><MessageCircle className="mr-2 h-4 w-4" />Share to WhatsApp</>}
+            </Button>
             <Button type="submit" disabled={loading} className="bg-gradient-to-r from-[#FF6B00] to-[#FF8C00] hover:from-[#FF6B00]/90 hover:to-[#FF8C00]/90 text-white font-semibold px-8">
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Job'}
             </Button>

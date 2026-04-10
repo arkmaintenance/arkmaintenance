@@ -13,10 +13,10 @@ export default async function JobsPage() {
   ] = await Promise.all([
     supabase
       .from('jobs')
-      .select('*, clients(contact_name, company_name), technicians(name)')
+      .select('*, clients(contact_name, company_name, phone), technicians(name)')
       .neq('job_type', 'appointment')
       .order('created_at', { ascending: false }),
-    supabase.from('clients').select('id, contact_name, company_name'),
+    supabase.from('clients').select('id, contact_name, company_name, phone'),
     supabase.from('technicians').select('id, name'),
   ])
 

@@ -525,10 +525,12 @@ export function EditDocumentForm({
         setAddresses([...new Set(clientData.map((c: any) => [c.address, c.city, c.parish].filter(Boolean).join(', ')).filter(Boolean))] as string[])
       }
 
-      // Load unique job titles from quotations + invoices
+      // Load unique job titles from jobs + quotations + invoices
+      const { data: jobData } = await supabase.from('jobs').select('title').not('title', 'is', null)
       const { data: quoteData } = await supabase.from('quotations').select('title').not('title', 'is', null)
       const { data: invData } = await supabase.from('invoices').select('title').not('title', 'is', null)
       const allTitles = [
+        ...(jobData || []).map((r: any) => r.title),
         ...(quoteData || []).map((r: any) => r.title),
         ...(invData || []).map((r: any) => r.title),
       ].filter(Boolean)

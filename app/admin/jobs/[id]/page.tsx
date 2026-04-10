@@ -8,6 +8,8 @@ import {
   Clock3,
   FileText,
   MapPin,
+  MessageCircle,
+  Pencil,
   Phone,
   Repeat,
   UserRound,
@@ -26,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
 
 interface JobDetailRecord {
   id: string
@@ -74,6 +77,7 @@ interface ParsedJobNotes {
   line_items?: unknown
   recurring_schedule?: unknown
   is_service_contract?: unknown
+  whatsapp_number?: unknown
   telephone?: unknown
   address_landmark?: unknown
   additional_technicians?: unknown
@@ -238,7 +242,7 @@ export default async function JobDetailPage({ params }: { params: any }) {
     notFound()
   }
 
-  const record = job as JobDetailRecord
+  const record = job as unknown as JobDetailRecord
   const parsedNotes = parseNotes(record.notes)
   const lineItems = normalizeLineItems(parsedNotes.line_items)
   const isAppointment = record.job_type === 'appointment' || parsedNotes.appointment === true
@@ -252,11 +256,25 @@ export default async function JobDetailPage({ params }: { params: any }) {
     asText(parsedNotes.company_name) ||
     'Walk-in / Unassigned'
   const contactPerson = asText(parsedNotes.contact_person) || record.clients?.contact_name || ''
+  const clientPhone = asText(parsedNotes.whatsapp_number) || asText(parsedNotes.telephone) || record.clients?.phone || ''
   const clientAddress =
     record.address ||
     [record.clients?.address, record.clients?.city, record.clients?.parish].filter(Boolean).join(', ')
   const backHref = isAppointment ? '/admin/calendar' : '/admin/jobs'
   const pageTitle = isAppointment ? 'Appointment Details' : 'Job Details'
+  const whatsappUrl = buildJobWhatsAppUrl({
+    phone: clientPhone,
+    title: record.title,
+    clientName,
+    contactPerson,
+    scheduledDate: record.scheduled_date,
+    scheduledTime: record.scheduled_time,
+    address: clientAddress,
+    technicianName: record.technicians?.name || '',
+    status: record.status,
+    description: record.description,
+    lineItems,
+  })
 
   return (
     <div className="flex flex-col">
@@ -265,12 +283,22 @@ export default async function JobDetailPage({ params }: { params: any }) {
       <div className="space-y-6 p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
-            <Button asChild variant="outline" className="border-border">
-              <Link href={backHref}>
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" className="border-border">
+                <Link href={backHref}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Link>
+              </Button>
+              {!isAppointment ? (
+                <Button asChild variant="outline" className="border-border">
+                  <Link href={`/admin/jobs/${record.id}/edit`}>
+                    <Pencil className="h-4 w-4" />
+                    Edit Job
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
 
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -297,23 +325,39 @@ export default async function JobDetailPage({ params }: { params: any }) {
             </div>
           </div>
 
-          <Card className="w-full border-border bg-card lg:max-w-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Schedule</CardTitle>
-              <CardDescription>
-                {record.scheduled_date ? 'Scheduled work window' : 'No schedule assigned yet'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <DetailItem label="Date" value={formatDate(record.scheduled_date)} icon={<CalendarDays className="h-3.5 w-3.5" />} />
-              <DetailItem label="Time" value={formatTime(record.scheduled_time)} icon={<Clock3 className="h-3.5 w-3.5" />} />
-              <DetailItem
-                label="Recurring"
-                value={record.is_recurring ? formatLabel(recurringSchedule || 'Recurring') : 'One-time'}
-                icon={<Repeat className="h-3.5 w-3.5" />}
-              />
-            </CardContent>
-          </Card>
+          <div className="w-full space-y-3 lg:max-w-sm">
+            {whatsappUrl ? (
+              <Button asChild className="w-full bg-emerald-600 text-white hover:bg-emerald-500">
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="h-4 w-4" />
+                  Share to WhatsApp
+                </a>
+              </Button>
+            ) : (
+              <Button disabled className="w-full bg-emerald-600/60 text-white">
+                <MessageCircle className="h-4 w-4" />
+                Client phone required
+              </Button>
+            )}
+
+            <Card className="w-full border-border bg-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Schedule</CardTitle>
+                <CardDescription>
+                  {record.scheduled_date ? 'Scheduled work window' : 'No schedule assigned yet'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                <DetailItem label="Date" value={formatDate(record.scheduled_date)} icon={<CalendarDays className="h-3.5 w-3.5" />} />
+                <DetailItem label="Time" value={formatTime(record.scheduled_time)} icon={<Clock3 className="h-3.5 w-3.5" />} />
+                <DetailItem
+                  label="Recurring"
+                  value={record.is_recurring ? formatLabel(recurringSchedule || 'Recurring') : 'One-time'}
+                  icon={<Repeat className="h-3.5 w-3.5" />}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -325,7 +369,7 @@ export default async function JobDetailPage({ params }: { params: any }) {
             <CardContent className="grid gap-3 md:grid-cols-2">
               <DetailItem label="Company / Client" value={clientName} icon={<Building2 className="h-3.5 w-3.5" />} />
               <DetailItem label="Contact Person" value={contactPerson} icon={<UserRound className="h-3.5 w-3.5" />} />
-              <DetailItem label="Telephone" value={asText(parsedNotes.telephone) || record.clients?.phone || ''} icon={<Phone className="h-3.5 w-3.5" />} />
+              <DetailItem label="WhatsApp / Phone" value={clientPhone} icon={<Phone className="h-3.5 w-3.5" />} />
               <DetailItem label="Address" value={clientAddress} icon={<MapPin className="h-3.5 w-3.5" />} />
             </CardContent>
           </Card>

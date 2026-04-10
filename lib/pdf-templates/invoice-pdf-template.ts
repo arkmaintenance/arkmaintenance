@@ -23,6 +23,44 @@ interface InvoicePdfData {
   balance_due: number
 }
 
+function cleanPart(value: string | null | undefined) {
+  return (value || '').trim()
+}
+
+function getAddressLines(address?: string | null, city?: string | null, parish?: string | null) {
+  const normalizedAddress = cleanPart(address)
+
+  if (normalizedAddress) {
+    if (/\r?\n/.test(normalizedAddress)) {
+      return normalizedAddress
+        .split(/\r?\n/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+    }
+
+    const firstCommaIndex = normalizedAddress.indexOf(',')
+    if (firstCommaIndex === -1) {
+      return [normalizedAddress]
+    }
+
+    return [
+      normalizedAddress.slice(0, firstCommaIndex).trim(),
+      normalizedAddress.slice(firstCommaIndex + 1).trim(),
+    ].filter(Boolean)
+  }
+
+  return [cleanPart(city), cleanPart(parish)].filter(Boolean)
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // ARK logo URL - using company URL for PDF rendering
 const ARK_LOGO_URL = 'https://arkmaintenance.com/images/ark-logo.png'
 
@@ -31,6 +69,10 @@ const KITCHEN_SERVICE_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-stora
 const AC_SERVICE_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cover.jpeg-FW19ClbJksspOOP6m0p6ZndaWHefPt.webp'
 
 export function generateInvoicePdfHtml(data: InvoicePdfData): string {
+  const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
+  const clientAddressMarkup = clientAddressLines
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('')
   const itemRows = data.items
     .map(
       (item, index) => `
@@ -349,9 +391,7 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
       <div class="client-info">
         <p class="client-name">${data.client.name}</p>
         <p>${data.client.company}</p>
-        <p>${data.client.address}</p>
-        <p>${data.client.city}</p>
-        <p>${data.client.parish}</p>
+        ${clientAddressMarkup}
       </div>
     </div>
 

@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { forwardRef } from 'react'
+import { getAddressLines } from '@/lib/address-lines'
 
 interface InvoiceItem {
   description: string
@@ -38,6 +39,7 @@ interface InvoiceTemplateProps {
 
 export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   ({ data }, ref) => {
+    const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
     const minimumVisibleRows = 14
     const fillerRows = Array.from({
       length: Math.max(0, minimumVisibleRows - data.items.length),
@@ -105,9 +107,11 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <div className="border-2 border-[#FF6B00] rounded-md px-4 py-3 bg-orange-50 min-w-[220px]">
               <p className="font-bold text-black text-[14px]">{data.client.name}</p>
               {data.client.company && <p className="text-[#FF6B00] font-semibold">{data.client.company}</p>}
-              {data.client.address && <p className="text-[#FF6B00]">{data.client.address}</p>}
-              {data.client.city && <p className="text-[#FF6B00]">{data.client.city}</p>}
-              {data.client.parish && <p className="text-[#FF6B00]">{data.client.parish}</p>}
+              {clientAddressLines.map((line, index) => (
+                <p key={`${line}-${index}`} className="text-[#FF6B00]">
+                  {line}
+                </p>
+              ))}
             </div>
           </div>
           <div className="text-right">

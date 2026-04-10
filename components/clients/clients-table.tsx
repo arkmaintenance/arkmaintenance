@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Search, Eye, Pencil, Trash2, ArrowUpDown } from 'lucide-react'
+import { EditClientDialog } from './edit-client-dialog'
 
 interface Client {
   id: string
@@ -28,6 +29,7 @@ interface Client {
   parish: string | null
   client_type: string
   status: string
+  notes: string | null
   created_at: string
 }
 
@@ -152,13 +154,7 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <EditClientDialog client={client as any} />
                         <Button
                           variant="ghost" size="icon"
                           className="h-7 w-7 text-red-500 hover:text-red-400"

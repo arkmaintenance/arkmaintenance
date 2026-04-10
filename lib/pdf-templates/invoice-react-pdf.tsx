@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer'
+import { getAddressLines } from '@/lib/address-lines'
 
 // Colors
 const colors = {
@@ -406,6 +407,7 @@ interface InvoicePdfDocumentProps {
 }
 
 export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
+  const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
   const minimumVisibleRows = 14
   const fillerRows = Array.from({
     length: Math.max(0, minimumVisibleRows - data.items.length),
@@ -465,9 +467,9 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
               <View style={styles.billToBox}>
                 <Text style={styles.clientName}>{data.client.name}</Text>
                 {data.client.company ? <Text style={styles.clientInfo}>{data.client.company}</Text> : null}
-                {data.client.address ? <Text style={styles.clientInfo}>{data.client.address}</Text> : null}
-                {data.client.city ? <Text style={styles.clientInfo}>{data.client.city}</Text> : null}
-                {data.client.parish ? <Text style={styles.clientInfo}>{data.client.parish}</Text> : null}
+                {clientAddressLines.map((line, index) => (
+                  <Text key={`${line}-${index}`} style={styles.clientInfo}>{line}</Text>
+                ))}
               </View>
             </View>
             <View style={styles.invoiceMetaWrap}>
