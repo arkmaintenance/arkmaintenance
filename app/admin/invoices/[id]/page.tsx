@@ -239,7 +239,7 @@ export default function InvoicePreviewPage() {
     try {
       const dateStr = new Date(invoice.issued_date || (invoice as any).created_at).toISOString().split('T')[0]
       const clientName = invoice.clients?.company_name || invoice.clients?.contact_name || 'Client'
-      const jobDesc = serviceDescription
+      const jobDesc = serviceDescriptionLabel
       const safeFileName = `${invoice.invoice_number} - ${clientName}${jobDesc ? ` - ${jobDesc}` : ''} - ${dateStr}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadInvoicePdf(invoiceData, safeFileName)
@@ -274,9 +274,11 @@ export default function InvoicePreviewPage() {
   const calculatedItems = activeItems.map(item => ({ ...item, amount: item.qty * item.unit_price - (item.discount || 0) }))
   const subtotal = calculatedItems.reduce((sum, item) => sum + (item.section ? 0 : item.amount), 0)
   const total = subtotal
-  const serviceDescription = buildServiceDescription(
-    getCleanInvoiceTitle(editFormValues?.title || invoice.title),
-    editFormValues?.serviceLocation,
+  const serviceDescription = getCleanInvoiceTitle(editFormValues?.title || invoice.title)
+  const serviceLocation = editFormValues?.serviceLocation || ''
+  const serviceDescriptionLabel = buildServiceDescription(
+    serviceDescription,
+    serviceLocation,
     'AIR CONDITIONER SERVICING AND MAINTENANCE',
   )
 
@@ -293,6 +295,7 @@ export default function InvoicePreviewPage() {
     payment_terms: editFormValues?.paymentTerms || 'COD',
     payment_method: editFormValues?.paymentMethod || '',
     service_description: serviceDescription,
+    service_location: serviceLocation,
     isServiceContract: editFormValues?.isServiceContract || false,
     recurringSchedule: editFormValues?.recurringSchedule || 'one-time',
     timeline: editFormValues?.timeline || '3 Days',

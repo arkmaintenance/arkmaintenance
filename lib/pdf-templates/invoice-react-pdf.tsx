@@ -12,6 +12,7 @@ import {
   View,
 } from '@react-pdf/renderer'
 import { getAddressLines } from '@/lib/address-lines'
+import { getBankingDetails } from '@/lib/banking-details'
 
 // Colors
 const colors = {
@@ -148,6 +149,24 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
+  shipToMeta: {
+    marginTop: 5,
+    alignItems: 'flex-end',
+  },
+  shipToMetaLabel: {
+    fontSize: 7.4,
+    fontWeight: 700,
+    color: colors.dark,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginBottom: 1,
+  },
+  shipToMetaValue: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: colors.primary,
+    lineHeight: 1.1,
+  },
   // Table
   table: {
     marginBottom: 6,
@@ -249,45 +268,45 @@ const styles = StyleSheet.create({
   },
   // Banking Details
   bankingSection: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.primary,
-    borderRadius: 4,
-    paddingTop: 7,
-    paddingRight: 8,
-    paddingBottom: 6,
-    paddingLeft: 8,
+    borderRadius: 10,
+    paddingTop: 9,
+    paddingRight: 12,
+    paddingBottom: 8,
+    paddingLeft: 12,
     marginBottom: 4,
   },
   bankingTitle: {
-    fontSize: 10,
-    fontWeight: 700,
+    fontSize: 11.5,
+    fontWeight: 800,
     color: '#A14C1F',
     textAlign: 'center',
     textTransform: 'uppercase',
-    marginBottom: 3,
-    letterSpacing: 1.6,
+    marginBottom: 6,
+    letterSpacing: 2.2,
   },
   bankingDivider: {
     height: 1,
     backgroundColor: colors.primary,
-    marginBottom: 3,
+    marginBottom: 6,
   },
   bankingRow: {
     flexDirection: 'row',
-    marginBottom: 0,
+    marginBottom: 1.5,
   },
   bankingLabel: {
-    width: 106,
-    fontSize: 8.4,
-    fontWeight: 700,
+    width: 128,
+    fontSize: 8.8,
+    fontWeight: 800,
     color: '#A14C1F',
-    lineHeight: 1.1,
+    lineHeight: 1.15,
   },
   bankingValue: {
-    fontSize: 8.4,
+    fontSize: 8.8,
     color: '#334155',
     flex: 1,
-    lineHeight: 1.1,
+    lineHeight: 1.15,
   },
   // Fixed Footer - appears at bottom of every page
   footerFixed: {
@@ -385,6 +404,7 @@ interface InvoiceData {
   payment_terms: string
   payment_method?: string
   service_description: string
+  service_location?: string
   client: {
     name: string
     company: string
@@ -409,27 +429,11 @@ interface InvoicePdfDocumentProps {
 
 export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
   const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
-  const minimumVisibleRows = 14
+  const minimumVisibleRows = data.service_location ? 13 : 14
   const fillerRows = Array.from({
     length: Math.max(0, minimumVisibleRows - data.items.length),
   })
-  const isBHC = data.client.company?.toLowerCase().includes('british high commission')
-  const bankingDetails = isBHC
-    ? [
-        { label: 'Account Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd' },
-        { label: 'Account Number', value: '9909 4000 6439 (Savings)' },
-        { label: 'Name of Bank', value: 'First Global Bank' },
-        { label: 'Address of Bank', value: '28-48 Barbados Avenue, Kingston 5' },
-        { label: 'Sort Code', value: '99094' },
-        { label: 'Swift', value: 'FILBJMKN' },
-      ]
-    : [
-        { label: 'Branch', value: 'Ocho Rios' },
-        { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
-        { label: 'Branch Code', value: '99094' },
-        { label: 'Account Number', value: '99094 0006 439' },
-        { label: 'Account Type', value: 'Savings' },
-      ]
+  const bankingDetails = getBankingDetails(data.client.company)
   const formatCurrency = (amount: number) => `JMD ${amount.toLocaleString()}`
   const calculateLineTotal = (item: InvoiceItem) => Number(item.qty || 0) * Number(item.unit_price || 0)
   const calculatedSubtotal = data.items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
@@ -489,6 +493,12 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
                   <Text style={styles.invoiceDetailValue}>{data.payment_terms}</Text>
                 </Text>
               </View>
+              {data.service_location ? (
+                <View style={styles.shipToMeta}>
+                  <Text style={styles.shipToMetaLabel}>SHIP TO</Text>
+                  <Text style={styles.shipToMetaValue}>{data.service_location}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -572,7 +582,7 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
             </View>
           </View>
           <View style={styles.bankingSection}>
-            <Text style={styles.bankingTitle}>Banking Details</Text>
+            <Text style={styles.bankingTitle}>BANKING DETAILS</Text>
             <View style={styles.bankingDivider} />
             {bankingDetails.map((detail) => (
               <View key={detail.label} style={styles.bankingRow}>

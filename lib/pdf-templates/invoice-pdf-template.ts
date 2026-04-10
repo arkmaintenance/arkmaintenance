@@ -1,3 +1,5 @@
+import { getBankingDetails } from '@/lib/banking-details'
+
 interface InvoiceItem {
   description: string
   qty: number
@@ -72,6 +74,16 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
   const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
   const clientAddressMarkup = clientAddressLines
     .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('')
+  const bankingDetailsMarkup = getBankingDetails(data.client.company)
+    .map(
+      (detail) => `
+        <div class="banking-row">
+          <span class="banking-label">${escapeHtml(detail.label)}:</span>
+          <span class="banking-value">${escapeHtml(detail.value)}</span>
+        </div>
+      `
+    )
     .join('')
   const itemRows = data.items
     .map(
@@ -274,40 +286,46 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
     }
     .banking-section {
       border: 2px solid #FF6B00;
-      border-radius: 10px;
-      padding: 20px 24px;
+      border-radius: 18px;
+      padding: 18px 26px;
       margin-bottom: 28px;
-      background: linear-gradient(180deg, #fff8f5 0%, #ffffff 100%);
+      background: #ffffff;
     }
     .banking-title {
-      font-weight: 700;
-      color: #FF6B00;
+      font-weight: 800;
+      color: #A14C1F;
       text-align: center;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      font-size: 14px;
-      margin-bottom: 16px;
+      letter-spacing: 4px;
+      font-size: 16px;
+      margin-bottom: 14px;
     }
     .banking-divider {
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #FF6B00, transparent);
-      margin-bottom: 16px;
+      height: 1px;
+      background: #FF6B00;
+      margin-bottom: 14px;
     }
-    .banking-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 32px;
+    .banking-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .banking-item {
+    .banking-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
       font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.35;
     }
     .banking-label {
-      font-weight: 700;
-      color: #1e293b;
+      width: 210px;
+      flex-shrink: 0;
+      font-weight: 800;
+      color: #A14C1F;
     }
     .banking-value {
       color: #475569;
+      flex: 1;
     }
     .footer-section {
       margin-top: 20px;
@@ -436,15 +454,10 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
 
     <!-- Banking Details -->
     <div class="banking-section">
-      <div class="banking-title">Banking Details</div>
+      <div class="banking-title">BANKING DETAILS</div>
       <div class="banking-divider"></div>
-      <div class="banking-grid">
-        <div class="banking-item"><span class="banking-label">Bank:</span> <span class="banking-value">First Global Bank</span></div>
-        <div class="banking-item"><span class="banking-label">Branch:</span> <span class="banking-value">Ocho Rios</span></div>
-        <div class="banking-item"><span class="banking-label">Account Name:</span> <span class="banking-value">ARK Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd.</span></div>
-        <div class="banking-item"><span class="banking-label">Branch Code:</span> <span class="banking-value">99094</span></div>
-        <div class="banking-item"><span class="banking-label">Account Number:</span> <span class="banking-value">99094 0006 439</span></div>
-        <div class="banking-item"><span class="banking-label">Account Type:</span> <span class="banking-value">Savings</span></div>
+      <div class="banking-rows">
+        ${bankingDetailsMarkup}
       </div>
     </div>
 

@@ -158,15 +158,13 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
 
       const subtotal = Number(data.subtotal) || items.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0)
       const total = Number(data.total) || subtotal
-      const serviceDescription = buildServiceDescription(
-        data.title,
-        parsedNotes.service_location,
-        'SERVICE QUOTATION',
-      )
+      const serviceDescription = data.title || 'SERVICE QUOTATION'
+      const serviceLocation = parsedNotes.service_location || ''
+      const serviceDescriptionLabel = buildServiceDescription(serviceDescription, serviceLocation, 'SERVICE QUOTATION')
 
       const dateStr = new Date(data.created_at).toISOString().split('T')[0]
       const clientName = data.clients?.company_name || data.clients?.contact_name || 'Client'
-      const jobDesc = serviceDescription
+      const jobDesc = serviceDescriptionLabel
       const safeFileName = `Quote-${data.quote_number}${jobDesc ? `-${jobDesc}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadQuotationPdf({
@@ -178,6 +176,7 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
         }),
         payment_terms: '50% Deposit Required',
         service_description: serviceDescription,
+        service_location: serviceLocation,
         timeline: data.description || '3-5 Days',
         client: {
           name: data.clients?.contact_name || 'Client',

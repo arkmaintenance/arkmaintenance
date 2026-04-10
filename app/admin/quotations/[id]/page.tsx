@@ -244,17 +244,16 @@ export default function QuotationPreviewPage() {
   const activeValues = editFormValues
   const subtotal = (activeValues?.items || []).reduce((sum, item) => sum + (item.section ? 0 : item.amount), 0)
   const total = subtotal
-  const serviceDescription = buildServiceDescription(
-    activeValues?.title || quotation.title,
-    activeValues?.serviceLocation,
-    'SERVICE QUOTATION',
-  )
+  const serviceDescription = activeValues?.title || quotation.title || 'SERVICE QUOTATION'
+  const serviceLocation = activeValues?.serviceLocation || ''
+  const serviceDescriptionLabel = buildServiceDescription(serviceDescription, serviceLocation, 'SERVICE QUOTATION')
 
   const quotationData = {
     quote_number: quotation.quote_number,
     date: new Date((activeValues?.issuedDate || quotation.created_at.split('T')[0]) + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     payment_terms: activeValues?.paymentTerms || 'COD',
     service_description: serviceDescription,
+    service_location: serviceLocation,
     timeline: activeValues?.timeline || quotation.description || '3-5 Days',
     isServiceContract: activeValues?.isServiceContract || false,
     recurringSchedule: activeValues?.recurringSchedule || 'one-time',
@@ -280,7 +279,7 @@ export default function QuotationPreviewPage() {
     try {
       const dateStr = new Date(quotation.created_at).toISOString().split('T')[0]
       const clientName = quotation.clients?.company_name || quotation.clients?.contact_name || 'Client'
-      const jobDesc = serviceDescription
+      const jobDesc = serviceDescriptionLabel
       const safeFileName = `Quote-${quotation.quote_number}${jobDesc ? `-${jobDesc}` : ''}.pdf`.replace(/[/\\?%*:|"<>]/g, '-')
 
       await downloadQuotationPdf(quotationData, safeFileName)

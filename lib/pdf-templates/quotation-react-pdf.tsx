@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer'
+import { getBankingDetails } from '@/lib/banking-details'
 
 const colors = {
   primary: '#FF6B00',
@@ -225,6 +226,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: 0.45,
+  },
+  shipToMeta: {
+    marginTop: 5,
+    alignItems: 'flex-end',
+  },
+  shipToMetaLabel: {
+    fontSize: 7.4,
+    fontWeight: 700,
+    color: colors.dark,
+    textTransform: 'uppercase',
+    letterSpacing: 1.15,
+    marginBottom: 1,
+  },
+  shipToMetaValue: {
+    fontSize: 10.8,
+    fontWeight: 800,
+    color: colors.primary,
+    lineHeight: 1.1,
   },
   table: {
     marginBottom: 3,
@@ -461,44 +480,44 @@ const styles = StyleSheet.create({
   bankingSection: {
     borderWidth: 1.5,
     borderColor: colors.primary,
-    borderRadius: 6,
-    paddingTop: 4,
-    paddingRight: 6,
-    paddingBottom: 4,
-    paddingLeft: 6,
+    borderRadius: 10,
+    paddingTop: 8,
+    paddingRight: 10,
+    paddingBottom: 8,
+    paddingLeft: 10,
     marginTop: 0,
     marginBottom: 0,
   },
   bankingTitle: {
-    fontSize: 9.4,
+    fontSize: 10.4,
     fontWeight: 800,
     color: '#A14C1F',
     textAlign: 'center',
     textTransform: 'uppercase',
-    letterSpacing: 1.35,
-    marginBottom: 2,
+    letterSpacing: 1.8,
+    marginBottom: 4,
   },
   bankingDivider: {
     height: 1,
     backgroundColor: colors.primary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   bankingRow: {
     flexDirection: 'row',
-    marginBottom: 0,
+    marginBottom: 1,
   },
   bankingLabel: {
-    width: 108,
-    fontSize: 7.5,
+    width: 122,
+    fontSize: 7.9,
     fontWeight: 800,
     color: '#A14C1F',
-    lineHeight: 1,
+    lineHeight: 1.08,
   },
   bankingValue: {
     flex: 1,
-    fontSize: 7.5,
+    fontSize: 7.9,
     color: colors.slateText,
-    lineHeight: 1,
+    lineHeight: 1.08,
   },
   footerFixed: {
     position: 'absolute',
@@ -587,6 +606,7 @@ interface QuotationData {
   date: string
   payment_terms: string
   service_description: string
+  service_location?: string
   timeline?: string
   isServiceContract?: boolean
   recurringSchedule?: string
@@ -613,15 +633,6 @@ interface QuotationPdfDocumentProps {
   data: QuotationData
 }
 
-const bankingDetails = [
-  { label: 'Bank', value: 'First Global Bank' },
-  { label: 'Branch', value: 'Ocho Rios' },
-  { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
-  { label: 'Branch Code', value: '99094' },
-  { label: 'Account Number', value: '99094 0006 439' },
-  { label: 'Account Type', value: 'Savings' },
-]
-
 function formatCurrency(amount: number) {
   return `JMD ${amount.toLocaleString()}`
 }
@@ -640,6 +651,7 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
   const hasDiscountColumn = data.items.some((item) => item.discount && !item.section)
   const lineItems = data.items.filter((item) => item.section === undefined)
   const scopeDef = data.scopeTemplate ? SCOPE_TEMPLATES[data.scopeTemplate] : null
+  const bankingDetails = getBankingDetails(data.client.company)
   const fallbackScopePoints = data.scopeOfWorkPoints || []
   const scopePointCount = scopeDef ? scopeDef.points.length : fallbackScopePoints.length
   const calculatedSubtotal = data.items.reduce(
@@ -650,9 +662,10 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
   const contractType = data.isServiceContract ? 'SERVICE CONTRACT' : 'STANDARD QUOTATION'
   const scheduleLabel = capitalizeScheduleLabel(data.recurringSchedule)
   const hasScopeSection = Boolean(scopeDef || data.scopeOfWork)
+  const serviceLocationRowOffset = data.service_location ? 1 : 0
   const minimumVisibleRows = hasScopeSection
-    ? (scopePointCount > 0 ? (scopePointCount <= 12 ? 14 : 12) : 14)
-    : 20
+    ? Math.max(10, (scopePointCount > 0 ? (scopePointCount <= 12 ? 14 : 12) : 14) - serviceLocationRowOffset)
+    : Math.max(16, 20 - serviceLocationRowOffset)
   const fillerRows = Array.from({ length: Math.max(0, minimumVisibleRows - lineItems.length) })
   const leftScopePoints = (scopeDef ? scopeDef.points : fallbackScopePoints).slice(
     0,
@@ -708,6 +721,12 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
                   <Text style={styles.quotationDetailValue}>{data.payment_terms}</Text>
                 </Text>
               </View>
+              {data.service_location ? (
+                <View style={styles.shipToMeta}>
+                  <Text style={styles.shipToMetaLabel}>SHIP TO</Text>
+                  <Text style={styles.shipToMetaValue}>{data.service_location}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -917,7 +936,7 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
             ) : null}
 
             <View style={styles.bankingSection} wrap={false}>
-              <Text style={styles.bankingTitle}>Banking Details</Text>
+              <Text style={styles.bankingTitle}>BANKING DETAILS</Text>
               <View style={styles.bankingDivider} />
               {bankingDetails.map((detail) => (
                 <View key={detail.label} style={styles.bankingRow}>

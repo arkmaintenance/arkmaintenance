@@ -26,6 +26,7 @@ interface InvoiceData {
   date: string
   payment_terms: string
   service_description: string
+  service_location?: string
   client: {
     name: string
     company: string

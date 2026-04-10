@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { forwardRef } from 'react'
 import { getAddressLines } from '@/lib/address-lines'
+import { getBankingDetails } from '@/lib/banking-details'
 
 interface InvoiceItem {
   description: string
@@ -17,6 +18,7 @@ interface InvoiceData {
   payment_terms: string
   payment_method?: string     // cash | bank_transfer | cheque | credit_card
   service_description: string
+  service_location?: string
   isServiceContract?: boolean
   recurringSchedule?: string
   timeline?: string
@@ -40,7 +42,7 @@ interface InvoiceTemplateProps {
 export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   ({ data }, ref) => {
     const clientAddressLines = getAddressLines(data.client.address, data.client.city, data.client.parish)
-    const minimumVisibleRows = 14
+    const minimumVisibleRows = data.service_location ? 13 : 14
     const fillerRows = Array.from({
       length: Math.max(0, minimumVisibleRows - data.items.length),
     })
@@ -53,24 +55,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
       cheque: 'Cheque',
       credit_card: 'Credit Card',
     }
-    // British High Commission gets DIFFERENT banking details (First Global Bank)
-    const isBHC = data.client.company?.toLowerCase().includes('british high commission')
-    const bankingDetails = isBHC
-      ? [
-          { label: 'Account Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd' },
-          { label: 'Account Number', value: '9909 4000 6439 (Savings)' },
-          { label: 'Name of Bank', value: 'First Global Bank' },
-          { label: 'Address of Bank', value: '28-48 Barbados Avenue, Kingston 5' },
-          { label: 'Sort Code', value: '99094' },
-          { label: 'Swift', value: 'FILBJMKN' },
-        ]
-      : [
-          { label: 'Branch', value: 'Ocho Rios' },
-          { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
-          { label: 'Branch Code', value: '99094' },
-          { label: 'Account Number', value: '99094 0006 439' },
-          { label: 'Account Type', value: 'Savings' },
-        ]
+    const bankingDetails = getBankingDetails(data.client.company)
 
     return (
       <div
@@ -121,6 +106,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
               <p><span className="font-normal text-gray-500">Date:</span> <span className="font-bold">{data.date}</span></p>
               <p><span className="font-normal text-gray-500">Payment Terms:</span> <span className="font-bold">{data.payment_terms}</span></p>
             </div>
+            {data.service_location && (
+              <div className="mt-2 text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#1a1a2e]">Ship To</p>
+                <p className="text-[16px] font-extrabold text-[#FF6B00] leading-tight">{data.service_location}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -204,13 +195,13 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
           )}
 
           {/* Banking Details */}
-          <div className="border-2 border-[#FF6B00] rounded-lg px-4 py-3 mb-3 bg-white">
-            <h3 className="font-bold text-[#A14C1F] text-center uppercase tracking-[0.22em] mb-2 text-[15px]">Banking Details</h3>
-            <div className="h-px bg-[#FF6B00] mb-2" />
-            <div className="text-[12px] leading-[1.1] space-y-0.5">
+          <div className="border-2 border-[#FF6B00] rounded-[18px] px-7 py-4 mb-3 bg-white">
+            <h3 className="font-extrabold text-[#A14C1F] text-center uppercase tracking-[0.32em] mb-3 text-[16px]">BANKING DETAILS</h3>
+            <div className="h-px bg-[#FF6B00] mb-3" />
+            <div className="text-[13px] leading-[1.25] space-y-1">
               {bankingDetails.map((detail) => (
-                <p key={detail.label} className="flex gap-1">
-                  <span className="w-[150px] shrink-0 font-extrabold text-[#A14C1F]">{detail.label}:</span>
+                <p key={detail.label} className="flex gap-3">
+                  <span className="w-[190px] shrink-0 font-extrabold text-[#A14C1F]">{detail.label}:</span>
                   <span className="text-slate-700">{detail.value}</span>
                 </p>
               ))}

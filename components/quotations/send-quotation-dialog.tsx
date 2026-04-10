@@ -27,6 +27,7 @@ interface QuotationData {
   date: string
   payment_terms: string
   service_description: string
+  service_location?: string
   timeline?: string
   client: {
     name: string

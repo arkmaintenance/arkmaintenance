@@ -1,3 +1,5 @@
+import { getBankingDetails } from '@/lib/banking-details'
+
 interface QuotationItem {
   description: string
   qty: number
@@ -30,8 +32,27 @@ const ARK_LOGO_URL = 'https://arkmaintenance.com/images/ark-logo.png'
 const KITCHEN_SERVICE_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/vidu-image-3160973357910227%20%281%29-Bvb5JXqm3zTHQbz0wtaAnBOVkMHiKm.png'
 const AC_SERVICE_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cover.jpeg-FW19ClbJksspOOP6m0p6ZndaWHefPt.webp'
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function generateQuotationPdfHtml(data: QuotationPdfData): string {
   const hasDiscount = data.items.some((item) => item.discount && item.discount > 0)
+  const bankingDetailsMarkup = getBankingDetails(data.client.company)
+    .map(
+      (detail) => `
+        <div class="banking-row">
+          <span class="banking-label">${escapeHtml(detail.label)}:</span>
+          <span class="banking-value">${escapeHtml(detail.value)}</span>
+        </div>
+      `
+    )
+    .join('')
 
   const itemRows = data.items
     .map(
@@ -255,40 +276,46 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
     }
     .banking-section {
       border: 2px solid #FF6B00;
-      border-radius: 10px;
-      padding: 20px 24px;
+      border-radius: 18px;
+      padding: 18px 26px;
       margin-bottom: 28px;
-      background: linear-gradient(180deg, #fff8f5 0%, #ffffff 100%);
+      background: #ffffff;
     }
     .banking-title {
-      font-weight: 700;
-      color: #FF6B00;
+      font-weight: 800;
+      color: #A14C1F;
       text-align: center;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      font-size: 14px;
-      margin-bottom: 16px;
+      letter-spacing: 4px;
+      font-size: 16px;
+      margin-bottom: 14px;
     }
     .banking-divider {
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #FF6B00, transparent);
-      margin-bottom: 16px;
+      height: 1px;
+      background: #FF6B00;
+      margin-bottom: 14px;
     }
-    .banking-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 32px;
+    .banking-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .banking-item {
+    .banking-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
       font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.35;
     }
     .banking-label {
-      font-weight: 700;
-      color: #1e293b;
+      width: 210px;
+      flex-shrink: 0;
+      font-weight: 800;
+      color: #A14C1F;
     }
     .banking-value {
       color: #475569;
+      flex: 1;
     }
     .footer-section {
       margin-top: 20px;
@@ -423,15 +450,10 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
 
     <!-- Banking Details -->
     <div class="banking-section">
-      <div class="banking-title">Banking Details</div>
+      <div class="banking-title">BANKING DETAILS</div>
       <div class="banking-divider"></div>
-      <div class="banking-grid">
-        <div class="banking-item"><span class="banking-label">Bank:</span> <span class="banking-value">First Global Bank</span></div>
-        <div class="banking-item"><span class="banking-label">Branch:</span> <span class="banking-value">Ocho Rios</span></div>
-        <div class="banking-item"><span class="banking-label">Account Name:</span> <span class="banking-value">ARK Air Conditioning, Refrigeration &amp; Kitchen Maintenance Ltd.</span></div>
-        <div class="banking-item"><span class="banking-label">Branch Code:</span> <span class="banking-value">99094</span></div>
-        <div class="banking-item"><span class="banking-label">Account Number:</span> <span class="banking-value">99094 0006 439</span></div>
-        <div class="banking-item"><span class="banking-label">Account Type:</span> <span class="banking-value">Savings</span></div>
+      <div class="banking-rows">
+        ${bankingDetailsMarkup}
       </div>
     </div>
 

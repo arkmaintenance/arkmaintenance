@@ -201,12 +201,6 @@ function ClearableField({
   const inputRef = useRef<HTMLInputElement>(null)
   const useCombo = options !== undefined
 
-  // + button: clears the text so the full dropdown opens on next focus/click
-  const handleAdd = () => {
-    onChange('')
-    setTimeout(() => inputRef.current?.focus(), 50)
-  }
-
   return (
     <div className="space-y-1">
       <Label className={`text-sm font-medium ${labelClass || 'text-gray-300'}`}>{label}</Label>
@@ -228,23 +222,13 @@ function ClearableField({
             className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1 placeholder:text-gray-500"
           />
         )}
-        {/* + opens / resets the dropdown */}
         <button
           type="button"
-          title="Open list"
-          onClick={handleAdd}
-          className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-        {/* − clears the field */}
-        <button
-          type="button"
-          title="Clear field"
+          title="Reset field"
           onClick={() => onChange('')}
-          className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
+          className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
         >
-          <Minus className="h-3.5 w-3.5" />
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -444,11 +428,11 @@ function DatePickerField({
         </button>
         <button
           type="button"
-          title="Clear date"
+          title="Reset field"
           onClick={() => onChange('')}
-          className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
+          className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
         >
-          <Minus className="h-3.5 w-3.5" />
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
       {mounted && open && createPortal(popup, document.body)}
@@ -680,14 +664,18 @@ export function EditDocumentForm({
               options={companyNames}
               placeholder="Select or type company..."
             />
-            <button type="button" title="Add New Client"
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => { setQuickAddOpen(true) }}
-              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
+              className="h-9 shrink-0 border-[#00BCD4] text-[#00BCD4] hover:bg-[#00BCD4]/10 hover:text-[#00BCD4] gap-2 px-3"
+            >
               <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" title="Clear" onClick={() => setSelectedClientId('')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-              <Minus className="h-3.5 w-3.5" />
+              Add New Client
+            </Button>
+            <button type="button" title="Reset field" onClick={() => setSelectedClientId('')}
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -709,11 +697,11 @@ export function EditDocumentForm({
             />
             <button
               type="button"
-              title="Clear field"
+              title="Reset field"
               onClick={() => setServiceLocation('')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0"
             >
-              <Minus className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -737,13 +725,9 @@ export function EditDocumentForm({
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Open" onClick={() => {}}
-              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" title="Reset to COD" onClick={() => setPaymentTerms('COD')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-              <Minus className="h-3.5 w-3.5" />
+            <button type="button" title="Reset field" onClick={() => setPaymentTerms('COD')}
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -912,13 +896,9 @@ export function EditDocumentForm({
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Open" onClick={() => {}}
-              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" title="Reset to one-time" onClick={() => setRecurringSchedule('one-time')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-              <Minus className="h-3.5 w-3.5" />
+            <button type="button" title="Reset field" onClick={() => setRecurringSchedule('one-time')}
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -971,13 +951,9 @@ export function EditDocumentForm({
                 <SelectItem value="ice_machine" className="text-white">16-Point Ice Machine Servicing</SelectItem>
               </SelectContent>
             </Select>
-            <button type="button" title="Open" onClick={() => {}}
-              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" title="Clear scope template" onClick={() => setScopeTemplate('')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-              <Minus className="h-3.5 w-3.5" />
+            <button type="button" title="Reset field" onClick={() => setScopeTemplate('')}
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
           {scopeTemplate && (
@@ -991,9 +967,9 @@ export function EditDocumentForm({
               <Textarea value={scopeOfWork} onChange={e => setScopeOfWork(e.target.value)}
                 placeholder="Add any custom scope notes..."
                 className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[60px] flex-1 placeholder:text-gray-500 text-sm" />
-              <button type="button" title="Clear" onClick={() => setScopeOfWork('')}
-                className="self-start w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60">
-                <Minus className="h-3.5 w-3.5" />
+              <button type="button" title="Reset field" onClick={() => setScopeOfWork('')}
+                className="self-start w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60">
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -1016,13 +992,9 @@ export function EditDocumentForm({
                 ))}
               </SelectContent>
             </Select>
-            <button type="button" title="Open" onClick={() => {}}
-              className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" title="Reset status" onClick={() => setStatus(docType === 'quotation' ? 'pending' : 'draft')}
-              className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-              <Minus className="h-3.5 w-3.5" />
+            <button type="button" title="Reset field" onClick={() => setStatus(docType === 'quotation' ? 'pending' : 'draft')}
+              className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1034,9 +1006,9 @@ export function EditDocumentForm({
         <div className="flex gap-1">
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Additional notes..."
             className="bg-[#2a2a4a] border-[#3a3a5a] text-white min-h-[70px] flex-1 placeholder:text-gray-500" />
-          <button type="button" title="Clear" onClick={() => setNotes('')}
-            className="self-start w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-            <Minus className="h-3.5 w-3.5" />
+          <button type="button" title="Reset field" onClick={() => setNotes('')}
+            className="self-start w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>

@@ -348,14 +348,18 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
                   options={companyNames}
                   placeholder="Select or type company..."
                 />
-                <button type="button" onClick={() => setQuickAddOpen(true)}
-                  className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0"
-                  title="Add New Client">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setQuickAddOpen(true)}
+                  className="h-9 shrink-0 border-[#00BCD4] text-[#00BCD4] hover:bg-[#00BCD4]/10 hover:text-[#00BCD4] gap-2 px-3"
+                >
                   <Plus className="h-3.5 w-3.5" />
-                </button>
+                  Add New Client
+                </Button>
                 <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setAddress(''); setTrn('') }}
-                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                  <Minus className="h-3.5 w-3.5" />
+                  className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -368,8 +372,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
               <div className="flex gap-1 items-center">
                 <Combobox value={contactPerson} onChange={setContactPerson} options={contactNames} placeholder="Select or type contact..." />
                 <button type="button" onClick={() => setContactPerson('')}
-                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                  <Minus className="h-3.5 w-3.5" />
+                  className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -383,8 +387,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
                   className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"
                 />
                 <button type="button" onClick={() => setServiceLocation('')}
-                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                  <Minus className="h-3.5 w-3.5" />
+                  className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -396,8 +400,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
             <div className="flex gap-1 items-center">
               <Combobox value={address} onChange={setAddress} options={addresses} placeholder="Select or type address..." />
               <button type="button" onClick={() => setAddress('')}
-                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                <Minus className="h-3.5 w-3.5" />
+                className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -420,8 +424,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
               <div className="flex gap-1 items-center">
                 <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} placeholder="PO Number" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
                 <button type="button" onClick={() => setPoNumber('')}
-                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                  <Minus className="h-3.5 w-3.5" />
+                  className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -430,8 +434,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
               <div className="flex gap-1 items-center">
                 <Input value={trn} onChange={e => setTrn(e.target.value)} placeholder="TRN" className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1" />
                 <button type="button" onClick={() => setTrn('')}
-                  className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                  <Minus className="h-3.5 w-3.5" />
+                  className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -443,8 +447,8 @@ export function AddInvoiceDialog({ clients: initialClients }: AddInvoiceDialogPr
             <div className="flex gap-1 items-center">
               <Combobox value={serviceDescription} onChange={setServiceDescription} options={jobTitles} placeholder="Type or select service description..." />
               <button type="button" onClick={() => setServiceDescription('')}
-                className="w-7 h-7 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
-                <Minus className="h-3.5 w-3.5" />
+                className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           </div>
