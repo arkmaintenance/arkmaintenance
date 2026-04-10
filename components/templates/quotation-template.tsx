@@ -171,7 +171,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     return (
       <div
         ref={ref}
-        className="bg-white text-black px-3 py-8 mx-auto font-sans w-[794px] min-h-[1123px] flex flex-col"
+        className="bg-white text-black px-3 py-8 mx-auto font-sans w-[760px] min-h-[1075px] flex flex-col"
         style={{ fontSize: '12px' }}
       >
         {/* Header Row 1: Logo left, Address right */}

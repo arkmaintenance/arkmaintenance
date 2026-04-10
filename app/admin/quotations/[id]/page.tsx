@@ -348,8 +348,10 @@ export default function QuotationPreviewPage() {
       )}
 
       {/* Quotation Template Preview */}
-      <div className="bg-white rounded-lg shadow-lg">
-        <QuotationTemplate ref={templateRef} data={quotationData} />
+      <div className="overflow-x-auto rounded-xl border border-border bg-secondary/10 p-4">
+        <div className="mx-auto w-fit">
+          <QuotationTemplate ref={templateRef} data={quotationData} />
+        </div>
       </div>
 
       {/* Send Quotation Dialog */}

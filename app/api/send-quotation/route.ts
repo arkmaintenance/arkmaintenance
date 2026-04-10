@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       quotationData,
       pdfBase64,
       pdfFilename,
+      extraAttachments,
       customMessage,
       emailTitle,
       greetingName,
@@ -62,14 +63,28 @@ export async function POST(request: NextRequest) {
       emailOptions.cc = Array.isArray(cc) ? cc : [cc]
     }
 
-    // Add PDF attachment - this contains the full quotation with all details
+    const attachments: Array<{ filename: string; content: Buffer }> = []
+
     if (pdfBase64 && pdfFilename) {
-      emailOptions.attachments = [
-        {
-          filename: pdfFilename,
-          content: Buffer.from(pdfBase64, 'base64'),
-        },
-      ]
+      attachments.push({
+        filename: pdfFilename,
+        content: Buffer.from(pdfBase64, 'base64'),
+      })
+    }
+
+    if (Array.isArray(extraAttachments)) {
+      for (const attachment of extraAttachments) {
+        if (!attachment?.filename || !attachment?.contentBase64) continue
+
+        attachments.push({
+          filename: attachment.filename,
+          content: Buffer.from(attachment.contentBase64, 'base64'),
+        })
+      }
+    }
+
+    if (attachments.length > 0) {
+      emailOptions.attachments = attachments
     }
 
     const { data, error } = await resend.emails.send(emailOptions)
@@ -93,7 +108,7 @@ export async function POST(request: NextRequest) {
         status: 'sent',
         email_type: 'quotation',
         related_id: quotationData.id || null,
-        attachments: pdfFilename ? [{ filename: pdfFilename }] : [],
+        attachments: attachments.map((attachment) => ({ filename: attachment.filename })),
         metadata: {
           quote_number: quotationData.quote_number,
           client_name: quotationData.client?.name,

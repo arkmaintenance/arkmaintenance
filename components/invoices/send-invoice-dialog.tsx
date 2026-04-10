@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
-import { Send, Eye, Mail, FileText, X, Plus, Download, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Send, Eye, Mail, FileText, X, Plus, Download, CheckCircle2, AlertCircle, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatEmailList, parseValidEmailList, uniqueEmailList } from '@/lib/email-addresses'
 import { generateInvoiceEmailHtml, getDefaultInvoiceEmailContent } from '@/lib/email-templates/invoice-email'
@@ -47,6 +47,42 @@ interface SendInvoiceDialogProps {
   clientEmail?: string
 }
 
+interface ExtraEmailAttachment {
+  filename: string
+  contentBase64: string
+  contentType: string
+  size: number
+}
+
+const MAX_EXTRA_ATTACHMENTS = 3
+const MAX_EXTRA_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('Failed to read attachment'))
+        return
+      }
+
+      const [, base64 = ''] = result.split(',')
+      resolve(base64)
+    }
+
+    reader.onerror = () => reject(new Error('Failed to read attachment'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function SendInvoiceDialog({
   open,
   onOpenChange,
@@ -54,6 +90,7 @@ export function SendInvoiceDialog({
   clientEmail,
 }: SendInvoiceDialogProps) {
   const defaultSubject = `Invoice ${invoiceData.invoice_number} from ARK Maintenance`
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
   const [sending, setSending] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
@@ -70,6 +107,7 @@ export function SendInvoiceDialog({
   const [attachmentNote, setAttachmentNote] = useState('')
   const [followUpMessage, setFollowUpMessage] = useState('')
   const [closingMessage, setClosingMessage] = useState('')
+  const [extraAttachments, setExtraAttachments] = useState<ExtraEmailAttachment[]>([])
   const [activeTab, setActiveTab] = useState('compose')
 
   const pdfFilename = `Invoice-${invoiceData.invoice_number}.pdf`
@@ -112,6 +150,7 @@ export function SendInvoiceDialog({
       setAttachmentNote(defaultEmailContent.attachmentNote)
       setFollowUpMessage(defaultEmailContent.followUpMessage)
       setClosingMessage(defaultEmailContent.closingMessage)
+      setExtraAttachments([])
       setActiveTab('compose')
     }
   }, [open, clientEmail, invoiceData.client.email, invoiceData.client.name, invoiceData.invoice_number, invoiceData.service_description, defaultSubject])
@@ -119,7 +158,7 @@ export function SendInvoiceDialog({
   // Auto-generate PDF when dialog opens
   useEffect(() => {
     if (open && !pdfGenerated && !generatingPdf && !pdfError) {
-      generatePdf()
+      void generatePdf()
     }
   }, [open, pdfGenerated, generatingPdf, pdfError])
 
@@ -145,12 +184,13 @@ export function SendInvoiceDialog({
 
       setPdfBase64(result.pdfBase64)
       setPdfGenerated(true)
-      toast.success('PDF generated successfully')
+      return result.pdfBase64 as string
     } catch (error) {
       console.error('[v0] Error generating PDF:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate PDF'
       setPdfError(errorMessage)
       toast.error(errorMessage)
+      return null
     } finally {
       setGeneratingPdf(false)
     }
@@ -183,14 +223,99 @@ export function SendInvoiceDialog({
     setCcEmails(ccEmails.filter((e) => e !== email))
   }
 
+  const handleAttachmentSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    const availableSlots = Math.max(0, MAX_EXTRA_ATTACHMENTS - extraAttachments.length)
+    const nextFiles = files.slice(0, availableSlots)
+
+    if (files.length > availableSlots) {
+      toast.error(`You can attach up to ${MAX_EXTRA_ATTACHMENTS} extra files`)
+    }
+
+    const validFiles = nextFiles.filter((file) => {
+      if (file.size > MAX_EXTRA_ATTACHMENT_SIZE_BYTES) {
+        toast.error(`${file.name} is larger than 5 MB`)
+        return false
+      }
+
+      return true
+    })
+
+    if (validFiles.length === 0) {
+      event.target.value = ''
+      return
+    }
+
+    try {
+      const preparedAttachments = await Promise.all(
+        validFiles.map(async (file) => ({
+          filename: file.name,
+          contentBase64: await readFileAsBase64(file),
+          contentType: file.type || 'application/octet-stream',
+          size: file.size,
+        }))
+      )
+
+      setExtraAttachments((current) => {
+        const seen = new Set(current.map((attachment) => `${attachment.filename}:${attachment.size}`.toLowerCase()))
+        const additions = preparedAttachments.filter((attachment) => {
+          const key = `${attachment.filename}:${attachment.size}`.toLowerCase()
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+
+        return [...current, ...additions]
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to attach file')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const handleRemoveAttachment = (filename: string, size: number) => {
+    setExtraAttachments((current) =>
+      current.filter((attachment) => !(attachment.filename === filename && attachment.size === size))
+    )
+  }
+
   const handleSend = async () => {
-    if (recipientEmails.length === 0) {
+    const pendingRecipients = parseValidEmailList(newRecipientEmail)
+    const pendingCc = parseValidEmailList(newCcEmail)
+
+    if (pendingRecipients.invalid.length > 0) {
+      toast.error(`Invalid email address${pendingRecipients.invalid.length > 1 ? 'es' : ''}: ${pendingRecipients.invalid.join(', ')}`)
+      return
+    }
+
+    if (pendingCc.invalid.length > 0) {
+      toast.error(`Invalid email address${pendingCc.invalid.length > 1 ? 'es' : ''}: ${pendingCc.invalid.join(', ')}`)
+      return
+    }
+
+    const nextRecipients = uniqueEmailList([...recipientEmails, ...pendingRecipients.valid])
+    const nextCc = uniqueEmailList([...ccEmails, ...pendingCc.valid])
+
+    if (nextRecipients.length === 0) {
       toast.error('Please add at least one recipient email address')
       return
     }
 
-    if (!pdfBase64) {
-      toast.error('Please wait for PDF generation to complete')
+    setRecipientEmails(nextRecipients)
+    setCcEmails(nextCc)
+    setNewRecipientEmail('')
+    setNewCcEmail('')
+
+    let nextPdfBase64 = pdfBase64
+    if (!nextPdfBase64) {
+      nextPdfBase64 = await generatePdf()
+    }
+
+    if (!nextPdfBase64) {
+      toast.error('Unable to generate the PDF attachment')
       return
     }
 
@@ -203,12 +328,13 @@ export function SendInvoiceDialog({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          to: recipientEmails,
-          cc: ccEmails,
+          to: nextRecipients,
+          cc: nextCc,
           subject,
           invoiceData,
-          pdfBase64,
+          pdfBase64: nextPdfBase64,
           pdfFilename,
+          extraAttachments,
           emailTitle,
           greetingName,
           emailMessage,
@@ -224,7 +350,7 @@ export function SendInvoiceDialog({
         throw new Error(result.error || 'Failed to send email')
       }
 
-      toast.success(`Invoice sent successfully to ${recipientEmails.length} recipient${recipientEmails.length > 1 ? 's' : ''}`)
+      toast.success(`Invoice sent successfully to ${nextRecipients.length} recipient${nextRecipients.length > 1 ? 's' : ''}`)
       onOpenChange(false)
     } catch (error) {
       console.error('Error sending invoice:', error)
@@ -244,6 +370,7 @@ export function SendInvoiceDialog({
   })
   const recipientDisplay = recipientEmails.length > 0 ? formatEmailList(recipientEmails) : 'No recipients specified'
   const ccDisplay = ccEmails.length > 0 ? formatEmailList(ccEmails) : ''
+  const attachmentNames = [pdfFilename, ...extraAttachments.map((attachment) => attachment.filename)].join(', ')
 
   const renderTemplateEditor = (prefix: string, compact = false) => (
     <div className={compact ? 'space-y-3' : 'space-y-4'}>
@@ -318,7 +445,7 @@ export function SendInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden flex flex-col">
+      <DialogContent className="w-[92vw] max-w-6xl h-[88vh] max-h-[88vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-[#00BFFF]" />
@@ -503,6 +630,59 @@ export function SendInvoiceDialog({
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="border-border">
+              <CardContent className="space-y-4 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Extra Attachments</p>
+                    <p className="text-xs text-muted-foreground">
+                      Attach up to {MAX_EXTRA_ATTACHMENTS} extra files, 5 MB each.
+                    </p>
+                  </div>
+                  <div>
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={handleAttachmentSelect}
+                    />
+                    <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()} className="gap-2">
+                      <Upload className="h-4 w-4" />
+                      Attach File
+                    </Button>
+                  </div>
+                </div>
+
+                {extraAttachments.length > 0 ? (
+                  <div className="space-y-2">
+                    {extraAttachments.map((attachment) => (
+                      <div
+                        key={`${attachment.filename}-${attachment.size}`}
+                        className="flex items-center justify-between rounded-md border border-border bg-secondary/20 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{attachment.filename}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveAttachment(attachment.filename, attachment.size)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No extra files attached.</p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="preview-email" className="flex-1 overflow-hidden mt-4">
@@ -524,7 +704,7 @@ export function SendInvoiceDialog({
                     <p className="text-sm"><span className="text-muted-foreground">To:</span> {recipientDisplay}</p>
                     {ccDisplay && <p className="text-sm"><span className="text-muted-foreground">Cc:</span> {ccDisplay}</p>}
                     <p className="text-sm"><span className="text-muted-foreground">Subject:</span> {subject}</p>
-                    <p className="text-sm"><span className="text-muted-foreground">Attachment:</span> {pdfFilename}</p>
+                    <p className="text-sm"><span className="text-muted-foreground">Attachments:</span> {attachmentNames}</p>
                   </div>
                   <div className="overflow-auto flex-1">
                     <iframe
@@ -536,6 +716,7 @@ export function SendInvoiceDialog({
                 </div>
               </CardContent>
             </Card>
+
           </TabsContent>
 
           <TabsContent value="preview-pdf" className="flex-1 overflow-hidden mt-4">
@@ -605,7 +786,7 @@ export function SendInvoiceDialog({
           </Button>
           <Button
             onClick={handleSend}
-            disabled={sending || recipientEmails.length === 0 || !pdfGenerated}
+            disabled={sending}
             className="bg-[#00BFFF] hover:bg-[#00BFFF]/90 text-black font-semibold"
           >
             {sending ? (

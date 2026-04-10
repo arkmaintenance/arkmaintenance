@@ -75,7 +75,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
     return (
       <div
         ref={ref}
-        className="bg-white text-black px-3 py-8 mx-auto font-sans w-[794px] min-h-[1123px] flex flex-col leading-[1.1] shrink-0"
+        className="bg-white text-black px-3 py-8 mx-auto font-sans w-[760px] min-h-[1075px] flex flex-col leading-[1.1] shrink-0"
         style={{ fontSize: '12px' }}
       >
         {/* Header Row 1: Logo left, Address right */}
@@ -86,7 +86,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
               alt="ARK Maintenance"
               width={220}
               height={90}
-              style={{ width: 'auto', height: '90px' }}
+              style={{ width: 'auto', height: '84px' }}
             />
           </div>
           <div className="text-right text-[11px] text-gray-600 leading-snug">
@@ -102,9 +102,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
 
         {/* Header Row 2: Bill To left, Invoice title+details right */}
         <div className="flex justify-between items-start mb-4">
-          <div>
+          <div className="max-w-[300px]">
             <p className="text-xs font-bold text-[#1a1a2e] tracking-widest mb-2">BILL TO</p>
-            <div className="border-2 border-[#FF6B00] rounded-md px-4 py-3 bg-orange-50 min-w-[220px]">
+            <div className="inline-block max-w-[300px] min-w-[220px] border-2 border-[#FF6B00] rounded-md bg-orange-50 px-4 py-3">
               <p className="font-bold text-black text-[14px]">{data.client.name}</p>
               {data.client.company && <p className="text-[#FF6B00] font-semibold">{data.client.company}</p>}
               {clientAddressLines.map((line, index) => (

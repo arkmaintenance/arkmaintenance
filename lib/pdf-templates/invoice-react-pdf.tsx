@@ -75,7 +75,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   billToWrap: {
-    width: '46%',
+    width: '38%',
+    maxWidth: 225,
   },
   billToTitle: {
     fontSize: 8,

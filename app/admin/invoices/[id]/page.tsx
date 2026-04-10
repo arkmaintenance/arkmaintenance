@@ -113,9 +113,11 @@ export default function InvoicePreviewPage() {
         poNumber: parsedNotes.po_number || '',
         trn: parsedNotes.trn || '',
         scopeOfWork: '',
+        scopeOfWorkPoints: [],
         scopeTemplate: '',
         isServiceContract: parsedNotes.is_service_contract || false,
         recurringSchedule: parsedNotes.recurring_schedule || 'one-time',
+        validUntil: '',
         issuedDate: data.issued_date ? data.issued_date.split('T')[0] : '',
         dueDate: data.due_date ? data.due_date.split('T')[0] : '',
         status: data.status || 'draft',
@@ -383,8 +385,10 @@ export default function InvoicePreviewPage() {
 
 
       {/* Invoice Template Preview */}
-      <div className="bg-white rounded-lg shadow-lg">
-        <InvoiceTemplate ref={templateRef} data={invoiceData} />
+      <div className="overflow-x-auto rounded-xl border border-border bg-secondary/10 p-4">
+        <div className="mx-auto w-fit">
+          <InvoiceTemplate ref={templateRef} data={invoiceData} />
+        </div>
       </div>
 
       {/* Send Invoice Dialog */}
