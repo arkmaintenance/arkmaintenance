@@ -117,6 +117,14 @@ export async function downloadServiceContractPdf(
   triggerPdfDownload(result.pdfBase64, filename || result.filename)
 }
 
+export async function downloadClientReportPdf(
+  reportData: unknown,
+  filename?: string
+) {
+  const result = await generatePdf('/api/generate-client-report-pdf', { reportData })
+  triggerPdfDownload(result.pdfBase64, filename || result.filename)
+}
+
 export async function generateServiceContractPdf(serviceContractData: unknown) {
   return generatePdf('/api/generate-service-contract-pdf', { serviceContractData })
 }

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Search, Eye, Pencil, Trash2, ArrowUpDown } from 'lucide-react'
+import { Search, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { EditClientDialog } from './edit-client-dialog'
 
 interface Client {
@@ -37,7 +37,7 @@ interface ClientsTableProps {
   clients: Client[]
 }
 
-type SortField = 'contact_name' | 'company_name' | 'email' | 'phone'
+type SortField = 'contact_name' | 'company_name' | 'email' | 'phone' | 'created_at'
 type SortDir = 'asc' | 'desc'
 
 export function ClientsTable({ clients }: ClientsTableProps) {
@@ -54,9 +54,18 @@ export function ClientsTable({ clients }: ClientsTableProps) {
   )
 
   const filteredClients = [...filtered].sort((a, b) => {
-    const av = (a[sortField] || '') as string
-    const bv = (b[sortField] || '') as string
-    return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+    const av = (a[sortField] || '')
+    const bv = (b[sortField] || '')
+    
+    if (sortField === 'created_at') {
+      return sortDir === 'asc' 
+        ? new Date(av as string).getTime() - new Date(bv as string).getTime()
+        : new Date(bv as string).getTime() - new Date(av as string).getTime()
+    }
+
+    return sortDir === 'asc' 
+      ? (av as string).localeCompare(bv as string) 
+      : (bv as string).localeCompare(av as string)
   })
 
   function toggleSort(field: SortField) {
@@ -71,6 +80,7 @@ export function ClientsTable({ clients }: ClientsTableProps) {
   }
 
   function SortHead({ field, children }: { field: SortField; children: React.ReactNode }) {
+    const isActive = sortField === field
     return (
       <TableHead
         className="text-foreground font-medium cursor-pointer select-none group"
@@ -78,7 +88,11 @@ export function ClientsTable({ clients }: ClientsTableProps) {
       >
         <span className="flex items-center gap-1">
           {children}
-          <ArrowUpDown className={`h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity ${sortField === field ? 'opacity-100 text-[#00BFFF]' : ''}`} />
+          {isActive ? (
+            sortDir === 'asc' ? <ArrowUp className="h-3 w-3 text-[#00BFFF]" /> : <ArrowDown className="h-3 w-3 text-[#00BFFF]" />
+          ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+          )}
         </span>
       </TableHead>
     )
@@ -115,6 +129,7 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                   <SortHead field="company_name">Company</SortHead>
                   <SortHead field="email">Email</SortHead>
                   <SortHead field="phone">Phone</SortHead>
+                  <SortHead field="created_at">Created</SortHead>
                   <TableHead className="text-[#FF6B00] font-medium text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -125,16 +140,13 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                     className="border-border hover:bg-secondary/30 cursor-pointer"
                     onClick={() => router.push(`/admin/clients/${client.id}`)}
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <span
-                        className="text-[#00BFFF] font-medium hover:underline cursor-pointer"
-                        onClick={() => router.push(`/admin/clients/${client.id}`)}
-                      >
+                    <TableCell>
+                      <span className="text-[#00BFFF] font-medium hover:underline">
                         {client.contact_name}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-[#00BFFF]/80 hover:underline cursor-pointer">
+                      <span className="text-[#00BFFF]/80">
                         {client.company_name || '—'}
                       </span>
                     </TableCell>
@@ -143,6 +155,15 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                     </TableCell>
                     <TableCell>
                       <span className="text-muted-foreground text-sm">{client.phone || '—'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground text-sm">
+                        {new Date(client.created_at).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">

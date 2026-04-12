@@ -68,28 +68,47 @@ export default function InvoicePreviewPage() {
     clientName: invoice?.clients?.contact_name,
     companyName: invoice?.clients?.company_name,
   })
-  const resolveClientBySelection = async (selection: string) => {
+  const resolveClientBySelection = async (selection: string, contactPerson?: string) => {
     const trimmedSelection = selection.trim()
+    const trimmedContactPerson = contactPerson?.trim() || ''
 
-    if (!trimmedSelection) {
+    if (!trimmedSelection && !trimmedContactPerson) {
       return null
     }
 
     const clientFields = 'id, contact_name, company_name, address, city, parish, email, phone'
-    const { data: companyMatches } = await supabase
-      .from('clients')
-      .select(clientFields)
-      .eq('company_name', trimmedSelection)
-      .limit(1)
+    if (trimmedSelection) {
+      const { data: companyMatches } = await supabase
+        .from('clients')
+        .select(clientFields)
+        .eq('company_name', trimmedSelection)
 
-    if (companyMatches?.[0]) {
-      return companyMatches[0]
+      if (companyMatches?.length) {
+        if (trimmedContactPerson) {
+          const exactCompanyContactMatch = companyMatches.find(
+            (client: { contact_name?: string | null }) =>
+              client.contact_name?.trim() === trimmedContactPerson
+          )
+
+          if (exactCompanyContactMatch) {
+            return exactCompanyContactMatch
+          }
+        }
+
+        return companyMatches[0]
+      }
+    }
+
+    const contactLookup = trimmedContactPerson || trimmedSelection
+
+    if (!contactLookup) {
+      return null
     }
 
     const { data: contactMatches } = await supabase
       .from('clients')
       .select(clientFields)
-      .eq('contact_name', trimmedSelection)
+      .eq('contact_name', contactLookup)
       .limit(1)
 
     return contactMatches?.[0] ?? null
@@ -151,7 +170,7 @@ export default function InvoicePreviewPage() {
         dueDate: data.due_date ? data.due_date.split('T')[0] : '',
         status: data.status || 'draft',
         items: normalizedItems,
-        selectedClientId: data.clients?.company_name || data.clients?.contact_name || '',
+        selectedClientId: parsedNotes.client_company || data.clients?.company_name || data.clients?.contact_name || '',
       })
       setClientEmail(data.clients?.email)
       setLoading(false)
@@ -172,7 +191,7 @@ export default function InvoicePreviewPage() {
     const cleanedTitle = getCleanInvoiceTitle(values.title)
     const recalculatedItems = values.items.map(item => ({ ...item, amount: item.qty * item.unit_price - (item.discount || 0) }))
     const subtotal = recalculatedItems.reduce((sum, item) => sum + (item.section ? 0 : item.amount), 0)
-    const matchedClient = await resolveClientBySelection(values.selectedClientId)
+    const matchedClient = await resolveClientBySelection(values.selectedClientId, values.contactPerson)
     const previousAmountPaid = Math.max(
       0,
       Number(invoice.amount_paid || 0),
@@ -182,10 +201,10 @@ export default function InvoicePreviewPage() {
       ? subtotal
       : Math.min(subtotal, previousAmountPaid)
     const nextBalanceDue = Math.max(0, subtotal - nextAmountPaid)
-    const nextClientId = values.selectedClientId.trim()
-      ? matchedClient?.id ?? invoice.client_id ?? null
-      : null
+    const hasClientSelection = Boolean(values.selectedClientId.trim() || values.contactPerson.trim())
+    const nextClientId = hasClientSelection ? matchedClient?.id ?? null : null
     const nextNotes = JSON.stringify({
+      client_company: values.selectedClientId,
       contact_person: values.contactPerson,
       service_location: values.serviceLocation,
       address: values.address,
@@ -228,22 +247,20 @@ export default function InvoicePreviewPage() {
       issued_date: values.issuedDate || invoice.issued_date,
       due_date: values.dueDate || invoice.due_date,
       notes: nextNotes,
-      clients: values.selectedClientId.trim()
-        ? matchedClient
-          ? {
-              contact_name: matchedClient.contact_name,
-              company_name: matchedClient.company_name,
-              address: matchedClient.address,
-              city: matchedClient.city,
-              parish: matchedClient.parish,
-              email: matchedClient.email,
-              phone: matchedClient.phone,
-            }
-          : invoice.clients
+      clients: hasClientSelection
+        ? {
+            contact_name: values.contactPerson || matchedClient?.contact_name || '',
+            company_name: matchedClient?.company_name || values.selectedClientId,
+            address: matchedClient?.address || values.address || '',
+            city: matchedClient?.city || invoice.clients?.city || '',
+            parish: matchedClient?.parish || invoice.clients?.parish || '',
+            email: matchedClient?.email || '',
+            phone: matchedClient?.phone || null,
+          }
         : null,
     })
     setEditFormValues(values)
-    setClientEmail(values.selectedClientId.trim() ? matchedClient?.email : undefined)
+    setClientEmail(hasClientSelection ? matchedClient?.email || undefined : undefined)
     toast.success('Invoice updated successfully')
     setIsEditing(false)
     setSaving(false)
