@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -26,7 +25,6 @@ import {
   Search, 
   Eye,
   Download,
-  CheckCircle, 
   Pencil, 
   Copy, 
   Trash2,
@@ -53,15 +51,6 @@ interface Invoice {
 
 interface InvoicesTableProps {
   invoices: Invoice[]
-}
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
-  sent: 'bg-blue-500/20 text-blue-500 border-blue-500/50',
-  paid: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50',
-  overdue: 'bg-red-500/20 text-red-500 border-red-500/50',
-  cancelled: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
-  partial: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
 }
 
 type SortField = 'invoice_number' | 'client' | 'total' | 'amount_paid' | 'issued_date'

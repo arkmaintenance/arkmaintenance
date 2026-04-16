@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
 import {
   Table,
   TableBody,
@@ -17,13 +18,14 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { EditAppointmentDialog } from '@/components/appointments/edit-appointment-dialog'
 import { toast } from 'sonner'
-import { ArrowUpDown, Eye, Pencil, Search, Trash2 } from 'lucide-react'
+import { ArrowUpDown, Eye, MessageCircle, Pencil, Search, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 interface AppointmentClient {
   id: string
   contact_name: string
   company_name: string | null
+  phone?: string | null
   address?: string
   city?: string
   parish?: string
@@ -47,8 +49,8 @@ interface AppointmentRow {
   address: string | null
   notes: unknown
   created_at: string
-  clients: { contact_name: string; company_name: string | null } | null
-  technicians: { name: string } | null
+  clients: { contact_name: string | null; company_name: string | null } | null
+  technicians: { name: string | null } | null
 }
 
 interface AppointmentsTableProps {
@@ -66,6 +68,24 @@ const statusColors: Record<string, string> = {
   'in-progress': 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40',
   completed: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
   cancelled: 'bg-red-500/20 text-red-400 border-red-500/40',
+}
+
+function asText(value: unknown) {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+  return ''
+}
+
+function parseNotes(notes: unknown) {
+  if (!notes) return {}
+  if (typeof notes === 'object' && !Array.isArray(notes)) return notes as Record<string, unknown>
+  if (typeof notes !== 'string') return {}
+
+  try {
+    return JSON.parse(notes) as Record<string, unknown>
+  } catch {
+    return {}
+  }
 }
 
 export function AppointmentsTable({ appointments, clients, technicians }: AppointmentsTableProps) {
@@ -134,6 +154,45 @@ export function AppointmentsTable({ appointments, clients, technicians }: Appoin
 
     toast.success('Appointment deleted')
     router.refresh()
+  }
+
+  function handleShare(appointment: AppointmentRow) {
+    const parsedNotes = parseNotes(appointment.notes)
+    const matchedClient = clients.find(
+      (client) =>
+        client.id === appointment.client_id ||
+        client.company_name === appointment.clients?.company_name ||
+        client.contact_name === appointment.clients?.contact_name
+    )
+    const contactPerson = asText(parsedNotes.contact_person) || appointment.clients?.contact_name || ''
+    const clientName =
+      appointment.clients?.company_name ||
+      appointment.clients?.contact_name ||
+      matchedClient?.company_name ||
+      matchedClient?.contact_name ||
+      ''
+    const address =
+      appointment.address ||
+      [matchedClient?.address, matchedClient?.city, matchedClient?.parish].filter(Boolean).join(', ')
+    const whatsappUrl = buildJobWhatsAppUrl({
+      phone: asText(parsedNotes.telephone) || matchedClient?.phone,
+      title: appointment.title,
+      clientName,
+      contactPerson,
+      scheduledDate: appointment.scheduled_date,
+      scheduledTime: appointment.scheduled_time,
+      address,
+      technicianName: appointment.technicians?.name || '',
+      status: appointment.status,
+      description: appointment.description,
+    })
+
+    if (!whatsappUrl) {
+      toast.error('Client phone number is required to share on WhatsApp')
+      return
+    }
+
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
   }
 
   function SortHead({ field, children }: { field: SortField; children: ReactNode }) {
@@ -232,6 +291,15 @@ export function AppointmentsTable({ appointments, clients, technicians }: Appoin
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-emerald-500 hover:text-emerald-400"
+                            onClick={() => handleShare(appointment)}
+                            title="Share to WhatsApp"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

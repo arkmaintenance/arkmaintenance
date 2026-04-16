@@ -13,7 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { Plus, Minus, Loader2, Trash2, ChevronDown, MessageCircle } from 'lucide-react'
 import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
+import { QuickAddTechnicianDialog } from '@/components/shared/quick-add-technician-dialog'
 import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
+import {
+  closePendingExternalWindow,
+  openPendingExternalWindow,
+  redirectPendingExternalWindow,
+} from '@/lib/pending-external-window'
 
 // ─── Inline Combobox (portal-based) ──────────────────────────────────────────
 
@@ -151,6 +157,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
   ])
   const [specialNotes, setSpecialNotes] = useState('')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAddTechnicianOpen, setQuickAddTechnicianOpen] = useState(false)
 
   // Load clients + services from DB when dialog opens
   useEffect(() => {
@@ -215,6 +222,12 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     setSelectedTechnician(name)
   }
 
+  const handleQuickAddTechnicianSuccess = (newTechnician: Technician) => {
+    setTechnicians(prev => [...prev, newTechnician])
+    setTechnicianNames(prev => [...new Set([...prev, newTechnician.name].filter(Boolean))])
+    setSelectedTechnician(newTechnician.name || '')
+  }
+
   const total = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
 
   const addLineItem = () => setLineItems(prev => [...prev, { id: Date.now().toString(), description: '', quantity: 1, unit_price: 0 }])
@@ -256,12 +269,12 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
       return
     }
 
-    const pendingWindow = whatsappUrl ? window.open('', '_blank') : null
+    const pendingWindow = whatsappUrl ? openPendingExternalWindow('Opening WhatsApp') : null
     setLoading(true)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      if (pendingWindow) pendingWindow.close()
+      closePendingExternalWindow(pendingWindow)
       toast.error('You must be logged in')
       setLoading(false)
       return
@@ -295,7 +308,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     })
 
     if (error) {
-      if (pendingWindow) pendingWindow.close()
+      closePendingExternalWindow(pendingWindow)
       console.error('[AddJobDialog] Failed to create job', error)
       toast.error(error.message || 'Failed to create job')
       setLoading(false)
@@ -303,8 +316,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
     }
 
     if (whatsappUrl) {
-      if (pendingWindow) pendingWindow.location.href = whatsappUrl
-      else window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+      redirectPendingExternalWindow(pendingWindow, whatsappUrl)
     }
 
     toast.success(whatsappUrl ? 'Job created and opened in WhatsApp' : 'Job created successfully')
@@ -417,7 +429,7 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
               <Label className={labelCls}>Technician</Label>
               <div className="flex gap-1 items-center">
                 <Combobox value={selectedTechnician} onChange={handleTechnicianSelect} options={technicianNames} placeholder="Select technician..." />
-                <button type="button" onClick={() => setSelectedTechnician('')}
+                <button type="button" onClick={() => setQuickAddTechnicianOpen(true)}
                   className="w-7 h-7 rounded-md bg-[#00BCD4] text-white flex items-center justify-center hover:bg-[#00BCD4]/80 shrink-0">
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -620,6 +632,12 @@ export function AddJobDialog({ clients: initialClients, technicians: initialTech
         open={quickAddOpen}
         onOpenChange={setQuickAddOpen}
         onSuccess={handleQuickAddSuccess}
+      />
+
+      <QuickAddTechnicianDialog
+        open={quickAddTechnicianOpen}
+        onOpenChange={setQuickAddTechnicianOpen}
+        onSuccess={handleQuickAddTechnicianSuccess}
       />
     </Dialog>
   )

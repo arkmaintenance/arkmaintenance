@@ -17,6 +17,8 @@ interface InvoiceData {
   date: string
   payment_terms: string
   payment_method?: string     // cash | bank_transfer | cheque | credit_card
+  po_number?: string
+  trn?: string
   service_description: string
   service_location?: string
   isServiceContract?: boolean
@@ -105,6 +107,8 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
               <p><span className="font-normal text-gray-500">Invoice:</span> <span className="font-bold">{data.invoice_number}</span></p>
               <p><span className="font-normal text-gray-500">Date:</span> <span className="font-bold">{data.date}</span></p>
               <p><span className="font-normal text-gray-500">Payment Terms:</span> <span className="font-bold">{data.payment_terms}</span></p>
+              {data.po_number && <p><span className="font-normal text-gray-500">PO Number:</span> <span className="font-bold">{data.po_number}</span></p>}
+              {data.trn && <p><span className="font-normal text-gray-500">TRN:</span> <span className="font-bold">{data.trn}</span></p>}
             </div>
             {data.service_location && (
               <div className="mt-2 text-right">

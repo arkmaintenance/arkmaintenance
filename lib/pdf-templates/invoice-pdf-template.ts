@@ -11,6 +11,8 @@ interface InvoicePdfData {
   invoice_number: string
   date: string
   payment_terms: string
+  po_number?: string
+  trn?: string
   service_description: string
   client: {
     name: string
@@ -399,6 +401,8 @@ export function generateInvoicePdfHtml(data: InvoicePdfData): string {
           <p><strong>Invoice:</strong> INV-${data.invoice_number}</p>
           <p><strong>Date:</strong> ${data.date}</p>
           <p><strong>Payment Terms:</strong> ${data.payment_terms}</p>
+          ${data.po_number ? `<p><strong>PO Number:</strong> ${escapeHtml(data.po_number)}</p>` : ''}
+          ${data.trn ? `<p><strong>TRN:</strong> ${escapeHtml(data.trn)}</p>` : ''}
         </div>
       </div>
     </div>

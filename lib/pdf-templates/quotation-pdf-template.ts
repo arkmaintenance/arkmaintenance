@@ -1,3 +1,4 @@
+import { getAddressLines } from '@/lib/address-lines'
 import { getBankingDetails } from '@/lib/banking-details'
 
 interface QuotationItem {
@@ -12,6 +13,8 @@ interface QuotationPdfData {
   quote_number: string
   date: string
   payment_terms: string
+  po_number?: string
+  trn?: string
   service_description: string
   timeline?: string
   client: {
@@ -43,6 +46,9 @@ function escapeHtml(value: string) {
 
 export function generateQuotationPdfHtml(data: QuotationPdfData): string {
   const hasDiscount = data.items.some((item) => item.discount && item.discount > 0)
+  const clientAddressMarkup = getAddressLines(data.client.address, data.client.city)
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('')
   const bankingDetailsMarkup = getBankingDetails(data.client.company)
     .map(
       (detail) => `
@@ -389,6 +395,8 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
           <p><strong>Quotation:</strong> ${data.quote_number}</p>
           <p><strong>Date:</strong> ${data.date}</p>
           <p><strong>Payment Terms:</strong> ${data.payment_terms}</p>
+          ${data.po_number ? `<p><strong>PO Number:</strong> ${escapeHtml(data.po_number)}</p>` : ''}
+          ${data.trn ? `<p><strong>TRN:</strong> ${escapeHtml(data.trn)}</p>` : ''}
         </div>
       </div>
     </div>
@@ -399,8 +407,7 @@ export function generateQuotationPdfHtml(data: QuotationPdfData): string {
       <div class="client-info">
         <p class="client-name">${data.client.name}</p>
         <p>${data.client.company}</p>
-        <p>${data.client.address}</p>
-        <p>${data.client.city}</p>
+        ${clientAddressMarkup}
       </div>
     </div>
 

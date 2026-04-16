@@ -257,6 +257,7 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
   const [jobTimeline, setJobTimeline] = useState('')
   const [isServiceContract, setIsServiceContract] = useState(false)
   const [recurringSchedule, setRecurringSchedule] = useState('one-time')
+  const [warranty, setWarranty] = useState('30 days')
   const [scopeOfWork, setScopeOfWork] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [status, setStatus] = useState('pending')
@@ -389,7 +390,7 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
       total: totalAmount,
       status,
       valid_until: validUntil || null,
-      notes: JSON.stringify({ contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, job_timeline: jobTimeline, is_service_contract: isServiceContract, recurring_schedule: recurringSchedule, scope_of_work: scopeOfWork, scope_of_work_points: SCOPE_OF_WORK_OPTIONS[scopeOfWork] ?? [], notes }),
+      notes: JSON.stringify({ client_company: selectedCompany, contact_person: contactPerson, service_location: serviceLocation, address, payment_terms: paymentTerms, po_number: poNumber, trn, job_timeline: jobTimeline, is_service_contract: isServiceContract, recurring_schedule: recurringSchedule, warranty, scope_of_work: scopeOfWork, scope_of_work_points: SCOPE_OF_WORK_OPTIONS[scopeOfWork] ?? [], notes }),
     }).select('id').single()
     if (error) { toast.error('Failed to create quotation'); setLoading(false); return }
     toast.success('Quotation created')
@@ -606,8 +607,8 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
             </div>
           </div>
 
-          {/* Timeline + Recurring */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Timeline + Recurring + Warranty */}
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Job Completion Timeline</Label>
               <div className="flex gap-1 items-center">
@@ -628,6 +629,18 @@ export function AddQuotationDialog({ clients: initialClients }: AddQuotationDial
                   {['one-time','weekly','bi-weekly','monthly','quarterly','semi-annual','annual'].map(v => (
                     <SelectItem key={v} value={v} className="text-white capitalize">{v.replace('-', ' ')}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Warranty</Label>
+              <Select value={warranty} onValueChange={setWarranty}>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                  <SelectItem value="30 days" className="text-white">30 Days</SelectItem>
+                  <SelectItem value="90 days" className="text-white">90 Days</SelectItem>
+                  <SelectItem value="1 year" className="text-white">1 Year</SelectItem>
+                  <SelectItem value="3 years" className="text-white">3 Years</SelectItem>
                 </SelectContent>
               </Select>
             </div>

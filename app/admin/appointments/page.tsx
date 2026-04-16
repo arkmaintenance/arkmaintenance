@@ -16,7 +16,7 @@ export default async function AppointmentsPage() {
       .select('id, client_id, technician_id, title, description, status, priority, scheduled_date, scheduled_time, address, notes, created_at, clients(contact_name, company_name), technicians(name)')
       .eq('job_type', 'appointment')
       .order('scheduled_date', { ascending: true }),
-    supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name'),
+    supabase.from('clients').select('id, contact_name, company_name, phone, address, city, parish').order('company_name'),
     supabase.from('technicians').select('id, name').order('name'),
   ])
 

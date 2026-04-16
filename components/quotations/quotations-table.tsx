@@ -174,24 +174,31 @@ export function QuotationsTable({ quotations }: QuotationsTableProps) {
           month: 'long',
           day: 'numeric',
         }),
-        payment_terms: '50% Deposit Required',
+        payment_terms: parsedNotes.payment_terms || 'COD',
+        po_number: parsedNotes.po_number || '',
+        trn: parsedNotes.trn || '',
         service_description: serviceDescription,
         service_location: serviceLocation,
-        timeline: data.description || '3-5 Days',
+        timeline: parsedNotes.job_timeline || data.description || '3-5 Days',
+        warranty: parsedNotes.warranty || '30 days',
         client: {
           name: data.clients?.contact_name || 'Client',
-          company: data.clients?.company_name || '',
+          company: parsedNotes.client_company || data.clients?.company_name || '',
           address: data.clients?.address || '',
           city: data.clients?.city || '',
         },
         items,
         subtotal,
         total,
-        isServiceContract: data.is_service_contract,
-        recurringSchedule: data.recurring_schedule,
-        scopeTemplate: data.scope_template,
-        scopeOfWork: data.scope_of_work,
-        scopeOfWorkPoints: Array.isArray(data.scope_of_work_points) ? data.scope_of_work_points : [],
+        isServiceContract: parsedNotes.is_service_contract || data.is_service_contract,
+        recurringSchedule: parsedNotes.recurring_schedule || data.recurring_schedule || 'one-time',
+        scopeTemplate: parsedNotes.scope_template || data.scope_template || '',
+        scopeOfWork: parsedNotes.scope_of_work || data.scope_of_work || '',
+        scopeOfWorkPoints: Array.isArray(parsedNotes.scope_of_work_points)
+          ? parsedNotes.scope_of_work_points
+          : Array.isArray(data.scope_of_work_points)
+            ? data.scope_of_work_points
+            : [],
       }, safeFileName)
 
       toast.success('Quotation PDF downloaded')

@@ -11,7 +11,9 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer'
+import { getAddressLines } from '@/lib/address-lines'
 import { getBankingDetails } from '@/lib/banking-details'
+import { getQuotationFillerRowCount } from '@/lib/quotation-layout'
 
 const colors = {
   primary: '#FF6B00',
@@ -127,7 +129,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     paddingHorizontal: 12,
     paddingTop: 18,
-    paddingBottom: 120,
+    paddingBottom: 18,
   },
   container: {
     flexGrow: 1,
@@ -161,7 +163,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   preparedForWrap: {
-    width: '46%',
+    width: '42%',
+    maxWidth: 240,
   },
   preparedForTitle: {
     fontSize: 7.8,
@@ -174,10 +177,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.primary,
     borderRadius: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 9,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     backgroundColor: colors.orangeTint,
-    minHeight: 56,
+    minHeight: 48,
   },
   clientName: {
     fontSize: 10,
@@ -519,11 +522,8 @@ const styles = StyleSheet.create({
     color: colors.slateText,
     lineHeight: 1.08,
   },
-  footerFixed: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 6,
+  footerSection: {
+    marginTop: 4,
   },
   gradientBar: {
     height: 3,
@@ -552,6 +552,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     backgroundColor: colors.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footerImageCardLeft: {
     marginRight: 5,
@@ -559,7 +561,7 @@ const styles = StyleSheet.create({
   footerServiceImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'cover',
+    objectFit: 'contain',
   },
   footerHeading: {
     fontSize: 5.9,
@@ -605,11 +607,14 @@ interface QuotationData {
   quote_number: string
   date: string
   payment_terms: string
+  po_number?: string
+  trn?: string
   service_description: string
   service_location?: string
   timeline?: string
   isServiceContract?: boolean
   recurringSchedule?: string
+  warranty?: string
   scopeTemplate?: string
   scopeOfWork?: string
   scopeOfWorkPoints?: string[]
@@ -648,6 +653,7 @@ function capitalizeScheduleLabel(value?: string) {
 }
 
 export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
+  const clientAddressLines = getAddressLines(data.client.address, data.client.city)
   const hasDiscountColumn = data.items.some((item) => item.discount && !item.section)
   const lineItems = data.items.filter((item) => item.section === undefined)
   const scopeDef = data.scopeTemplate ? SCOPE_TEMPLATES[data.scopeTemplate] : null
@@ -659,14 +665,17 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
     0
   )
   const calculatedTotal = calculatedSubtotal
-  const contractType = data.isServiceContract ? 'SERVICE CONTRACT' : 'STANDARD QUOTATION'
   const scheduleLabel = capitalizeScheduleLabel(data.recurringSchedule)
+  const warrantyLabel = data.warranty || '30 days'
   const hasScopeSection = Boolean(scopeDef || data.scopeOfWork)
-  const serviceLocationRowOffset = data.service_location ? 1 : 0
-  const minimumVisibleRows = hasScopeSection
-    ? Math.max(10, (scopePointCount > 0 ? (scopePointCount <= 12 ? 14 : 12) : 14) - serviceLocationRowOffset)
-    : Math.max(16, 20 - serviceLocationRowOffset)
-  const fillerRows = Array.from({ length: Math.max(0, minimumVisibleRows - lineItems.length) })
+  const fillerRows = Array.from({
+    length: getQuotationFillerRowCount({
+      visibleTableRowCount: data.items.length,
+      hasScopeSection,
+      scopePointCount,
+      hasServiceLocation: Boolean(data.service_location),
+    }),
+  })
   const leftScopePoints = (scopeDef ? scopeDef.points : fallbackScopePoints).slice(
     0,
     Math.ceil((scopeDef ? scopeDef.points : fallbackScopePoints).length / 2)
@@ -700,8 +709,9 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
               <View style={styles.preparedForBox}>
                 <Text style={styles.clientName}>{data.client.name}</Text>
                 {data.client.company ? <Text style={styles.clientInfo}>{data.client.company}</Text> : null}
-                {data.client.address ? <Text style={styles.clientInfo}>{data.client.address}</Text> : null}
-                {data.client.city ? <Text style={styles.clientInfo}>{data.client.city}</Text> : null}
+                {clientAddressLines.map((line, index) => (
+                  <Text key={`${line}-${index}`} style={styles.clientInfo}>{line}</Text>
+                ))}
               </View>
             </View>
 
@@ -720,6 +730,18 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
                   <Text style={styles.quotationDetailLabel}>Payment Terms: </Text>
                   <Text style={styles.quotationDetailValue}>{data.payment_terms}</Text>
                 </Text>
+                {data.po_number ? (
+                  <Text>
+                    <Text style={styles.quotationDetailLabel}>PO Number: </Text>
+                    <Text style={styles.quotationDetailValue}>{data.po_number}</Text>
+                  </Text>
+                ) : null}
+                {data.trn ? (
+                  <Text>
+                    <Text style={styles.quotationDetailLabel}>TRN: </Text>
+                    <Text style={styles.quotationDetailValue}>{data.trn}</Text>
+                  </Text>
+                ) : null}
               </View>
               {data.service_location ? (
                 <View style={styles.shipToMeta}>
@@ -871,8 +893,8 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
           <View style={styles.bottomStack}>
             <View style={styles.boxesGrid} wrap={false}>
               <View style={[styles.box, styles.boxDark]}>
-                <Text style={[styles.boxLabel, styles.boxLabelDark]}>Contract Type</Text>
-                <Text style={[styles.boxValue, styles.boxValueDark]}>{contractType}</Text>
+                <Text style={[styles.boxLabel, styles.boxLabelDark]}>Warranty</Text>
+                <Text style={[styles.boxValue, styles.boxValueDark]}>{warrantyLabel}</Text>
               </View>
               <View style={[styles.box, styles.boxOrange]}>
                 <Text style={styles.boxLabel}>Schedule</Text>
@@ -885,7 +907,7 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
             </View>
 
             {(scopeDef || data.scopeOfWork) ? (
-              <View style={styles.scopeSection} wrap={false}>
+              <View style={styles.scopeSection}>
                 <Text style={styles.scopeTitle}>Scope of Work</Text>
                 {scopeDef ? (
                   <>
@@ -947,40 +969,39 @@ export const QuotationPdfDocument = ({ data }: QuotationPdfDocumentProps) => {
             </View>
 
           </View>
-        </View>
-
-        <View style={styles.footerFixed} fixed>
-          <View style={styles.gradientBar}>
-            <View style={styles.gradientBlue} />
-            <View style={styles.gradientYellow} />
-            <View style={styles.gradientOrange} />
-          </View>
-
-          <View style={styles.footerImageRow}>
-            <View style={[styles.footerImageCard, styles.footerImageCardLeft]}>
-              {data.assets?.footerLeft ? <Image src={data.assets.footerLeft} style={styles.footerServiceImage} /> : null}
+          <View style={styles.footerSection} wrap={false}>
+            <View style={styles.gradientBar}>
+              <View style={styles.gradientBlue} />
+              <View style={styles.gradientYellow} />
+              <View style={styles.gradientOrange} />
             </View>
-            <View style={styles.footerImageCard}>
-              {data.assets?.footerRight ? <Image src={data.assets.footerRight} style={styles.footerServiceImage} /> : null}
-            </View>
-          </View>
 
-          <Text style={styles.footerHeading}>+ OUR PROFESSIONAL SERVICES +</Text>
-          <Text style={styles.footerLine}>
-            <Text style={styles.footerLabelOrange}>AIR COND./REFRIGERATION:</Text>
-            <Text> SALES + SERVICE + REPAIR + INSTALLATION | </Text>
-            <Text style={styles.footerLabelBlue}>KITCHEN EXHAUST:</Text>
-            <Text> FABRICATION + MAINTENANCE + REPAIRS</Text>
-          </Text>
-          <Text style={styles.footerLine}>
-            <Text style={styles.footerLabelOrange}>KITCHEN EQUIPMENT:</Text>
-            <Text> CLEANING + REPAIRS + SALES | </Text>
-            <Text style={styles.footerLabelBlue}>DEEP CLEANING:</Text>
-            <Text> DE-GREASING + DE-SCALING</Text>
-          </Text>
-          <Text style={styles.footerThanks}>
-            Thank you for choosing Ark Air Conditioning, Refrigeration & Kitchen Maintenance Ltd. | www.arkmaintenance.com
-          </Text>
+            <View style={styles.footerImageRow}>
+              <View style={[styles.footerImageCard, styles.footerImageCardLeft]}>
+                {data.assets?.footerLeft ? <Image src={data.assets.footerLeft} style={styles.footerServiceImage} /> : null}
+              </View>
+              <View style={styles.footerImageCard}>
+                {data.assets?.footerRight ? <Image src={data.assets.footerRight} style={styles.footerServiceImage} /> : null}
+              </View>
+            </View>
+
+            <Text style={styles.footerHeading}>+ OUR PROFESSIONAL SERVICES +</Text>
+            <Text style={styles.footerLine}>
+              <Text style={styles.footerLabelOrange}>AIR COND./REFRIGERATION:</Text>
+              <Text> SALES + SERVICE + REPAIR + INSTALLATION | </Text>
+              <Text style={styles.footerLabelBlue}>KITCHEN EXHAUST:</Text>
+              <Text> FABRICATION + MAINTENANCE + REPAIRS</Text>
+            </Text>
+            <Text style={styles.footerLine}>
+              <Text style={styles.footerLabelOrange}>KITCHEN EQUIPMENT:</Text>
+              <Text> CLEANING + REPAIRS + SALES | </Text>
+              <Text style={styles.footerLabelBlue}>DEEP CLEANING:</Text>
+              <Text> DE-GREASING + DE-SCALING</Text>
+            </Text>
+            <Text style={styles.footerThanks}>
+              Thank you for choosing Ark Air Conditioning, Refrigeration & Kitchen Maintenance Ltd. | www.arkmaintenance.com
+            </Text>
+          </View>
         </View>
       </Page>
     </Document>

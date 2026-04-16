@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { forwardRef } from 'react'
+import { getBankingDetails } from '@/lib/banking-details'
 
 interface ContractItem {
   description: string
@@ -47,6 +48,8 @@ interface ServiceContractTemplateProps {
 
 export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContractTemplateProps>(
   ({ data }, ref) => {
+    const bankingDetails = getBankingDetails(data.client.company)
+
     return (
       <div ref={ref} className="bg-white text-black p-8 max-w-[800px] mx-auto font-sans" style={{ fontSize: '11px' }}>
         {/* Header */}
@@ -240,13 +243,13 @@ export const ServiceContractTemplate = forwardRef<HTMLDivElement, ServiceContrac
         {/* Banking Details */}
         <div className="bg-gray-100 p-4 rounded mb-6">
           <h3 className="font-bold text-gray-800 mb-2">BANKING DETAILS</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <p><span className="font-semibold">Bank:</span> First Global Bank</p>
-            <p><span className="font-semibold">Branch:</span> Ocho Rios</p>
-            <p><span className="font-semibold">Name:</span> ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.</p>
-            <p><span className="font-semibold">Branch Code:</span> 99094</p>
-            <p><span className="font-semibold">Account Number:</span> 99094 0006 439</p>
-            <p><span className="font-semibold">Account Type:</span> Savings</p>
+          <div className="space-y-1.5 text-sm">
+            {bankingDetails.map((detail) => (
+              <p key={detail.label} className="flex gap-3">
+                <span className="w-[170px] shrink-0 font-semibold">{detail.label}:</span>
+                <span>{detail.value}</span>
+              </p>
+            ))}
           </div>
         </div>
 

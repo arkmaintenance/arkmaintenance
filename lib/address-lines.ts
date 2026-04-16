@@ -4,25 +4,34 @@ function cleanPart(value: string | null | undefined) {
 
 export function getAddressLines(address?: string | null, city?: string | null, parish?: string | null) {
   const normalizedAddress = cleanPart(address)
+  const normalizedCity = cleanPart(city)
+  const normalizedParish = cleanPart(parish)
 
   if (normalizedAddress) {
-    if (/\r?\n/.test(normalizedAddress)) {
-      return normalizedAddress
-        .split(/\r?\n/)
-        .map((part) => part.trim())
-        .filter(Boolean)
-    }
+    const addressLines = /\r?\n/.test(normalizedAddress)
+      ? normalizedAddress
+          .split(/\r?\n/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : (() => {
+          const firstCommaIndex = normalizedAddress.indexOf(',')
+          if (firstCommaIndex === -1) {
+            return [normalizedAddress]
+          }
 
-    const firstCommaIndex = normalizedAddress.indexOf(',')
-    if (firstCommaIndex === -1) {
-      return [normalizedAddress]
-    }
+          return [
+            normalizedAddress.slice(0, firstCommaIndex).trim(),
+            normalizedAddress.slice(firstCommaIndex + 1).trim(),
+          ].filter(Boolean)
+        })()
 
-    return [
-      normalizedAddress.slice(0, firstCommaIndex).trim(),
-      normalizedAddress.slice(firstCommaIndex + 1).trim(),
-    ].filter(Boolean)
+    const normalizedAddressForComparison = normalizedAddress.toLowerCase()
+    const extraLines = [normalizedCity, normalizedParish].filter(
+      (part) => part && !normalizedAddressForComparison.includes(part.toLowerCase())
+    )
+
+    return [...addressLines, ...extraLines]
   }
 
-  return [cleanPart(city), cleanPart(parish)].filter(Boolean)
+  return [normalizedCity, normalizedParish].filter(Boolean)
 }

@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Mail, Send, Inbox, PenSquare, Users, RefreshCw, FileText, Briefcase, Phone, Clock, Paperclip, Eye, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
+import { splitEmailList } from '@/lib/email-addresses'
 
 interface Email {
   id: string
@@ -121,6 +122,21 @@ export default function EmailsPage() {
     setSelectedEmail(email)
     setViewDialogOpen(true)
   }
+
+  const getCcRecipients = (email: Email) => {
+    const ccValue = email.metadata?.cc
+
+    if (Array.isArray(ccValue)) {
+      return ccValue.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    }
+
+    if (typeof ccValue === 'string') {
+      return splitEmailList(ccValue)
+    }
+
+    return []
+  }
+  const selectedEmailCcRecipients = selectedEmail ? getCcRecipients(selectedEmail) : []
 
   const EmailList = ({ emailList, emptyMessage, emptyIcon: EmptyIcon }: { 
     emailList: Email[], 
@@ -387,6 +403,9 @@ export default function EmailsPage() {
                 <div className="space-y-1">
                   <p><span className="text-muted-foreground">From:</span> {selectedEmail.from_email}</p>
                   <p><span className="text-muted-foreground">To:</span> {selectedEmail.to_email}</p>
+                  {selectedEmailCcRecipients.length > 0 && (
+                    <p><span className="text-muted-foreground">Cc:</span> {selectedEmailCcRecipients.join(', ')}</p>
+                  )}
                   <p><span className="text-muted-foreground">Date:</span> {format(new Date(selectedEmail.created_at), 'PPpp')}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -394,7 +413,7 @@ export default function EmailsPage() {
                   {getStatusBadge(selectedEmail.status)}
                 </div>
               </div>
-              
+
               {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
                   <Paperclip className="h-4 w-4 text-muted-foreground" />

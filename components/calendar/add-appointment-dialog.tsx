@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState, forwardRef, type MutableRefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, forwardRef, type MutableRefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
+import { QuickAddTechnicianDialog } from '@/components/shared/quick-add-technician-dialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -130,6 +132,7 @@ interface Client {
   id: string
   contact_name: string
   company_name: string | null
+  phone?: string | null
   address?: string
   city?: string
   parish?: string
@@ -154,10 +157,8 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<Client[]>(initialClients)
   const [technicians, setTechnicians] = useState<Technician[]>(initialTechnicians)
-  const [companyNames, setCompanyNames] = useState<string[]>([])
-  const [contactNames, setContactNames] = useState<string[]>([])
-  const [addresses, setAddresses] = useState<string[]>([])
-  const [technicianNames, setTechnicianNames] = useState<string[]>([])
+  const [quickAddClientOpen, setQuickAddClientOpen] = useState(false)
+  const [quickAddTechnicianOpen, setQuickAddTechnicianOpen] = useState(false)
   const [subject, setSubject] = useState('')
   const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split('T')[0])
   const [appointmentTime, setAppointmentTime] = useState('')
@@ -172,27 +173,48 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
   const router = useRouter()
   const supabase = createClient()
 
+  const companyNames = useMemo(
+    () => [...new Set(clients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))],
+    [clients]
+  )
+  const contactNames = useMemo(() => {
+    if (!selectedCompany) {
+      return [...new Set(clients.map((client) => client.contact_name).filter(Boolean))]
+    }
+
+    return [
+      ...new Set(
+        clients
+          .filter((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
+          .map((client) => client.contact_name)
+          .filter(Boolean)
+      ),
+    ]
+  }, [clients, selectedCompany])
+  const addresses = useMemo(
+    () => [...new Set(clients.map((client) => buildAddress(client)).filter(Boolean))],
+    [clients]
+  )
+  const technicianNames = useMemo(
+    () => technicians.map((technician) => technician.name),
+    [technicians]
+  )
+
   useEffect(() => {
     if (!open) return
 
     async function load() {
       const [{ data: clientData }, { data: technicianData }] = await Promise.all([
-        supabase.from('clients').select('id, contact_name, company_name, address, city, parish').order('company_name'),
+        supabase.from('clients').select('id, contact_name, company_name, phone, address, city, parish').order('company_name'),
         supabase.from('technicians').select('id, name').order('name'),
       ])
 
       if (clientData) {
-        const safeClients = clientData as Client[]
-        setClients(safeClients)
-        setCompanyNames([...new Set(safeClients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))])
-        setContactNames([...new Set(safeClients.map((client) => String(client.contact_name || '')).filter(Boolean))])
-        setAddresses([...new Set(safeClients.map((client) => buildAddress(client)).filter(Boolean))])
+        setClients(clientData as Client[])
       }
 
       if (technicianData) {
-        const safeTechnicians = technicianData as Technician[]
-        setTechnicians(safeTechnicians)
-        setTechnicianNames(safeTechnicians.map((technician) => technician.name))
+        setTechnicians(technicianData as Technician[])
       }
     }
 
@@ -222,8 +244,25 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
 
     const [firstClient] = matchingClients
     setContactPerson(firstClient.contact_name || '')
+    setTelephone(firstClient.phone || '')
     setAddress(buildAddress(firstClient))
-    setContactNames([...new Set(matchingClients.map((client) => client.contact_name).filter(Boolean))])
+  }
+
+  function handleQuickAddClientSuccess(newClient: Client) {
+    setClients((current) => [...current, newClient])
+
+    const newName = newClient.company_name || newClient.contact_name || ''
+    const newAddress = buildAddress(newClient)
+
+    setSelectedCompany(newName)
+    setContactPerson(newClient.contact_name || '')
+    setTelephone(newClient.phone || '')
+    setAddress(newAddress)
+  }
+
+  function handleQuickAddTechnicianSuccess(newTechnician: Technician) {
+    setTechnicians((current) => [...current, newTechnician])
+    setSelectedTechnician(newTechnician.name || '')
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -366,6 +405,14 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                   <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
                   <button
                     type="button"
+                    onClick={() => setQuickAddClientOpen(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                    title="Add new client"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setSelectedCompany('')}
                     className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60"
                   >
@@ -418,6 +465,14 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
                 <Label className={labelClassName}>Technician Assigned</Label>
                 <div className="flex items-center gap-1">
                   <Combobox value={selectedTechnician} onChange={setSelectedTechnician} options={technicianNames} placeholder="Select technician..." />
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddTechnicianOpen(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                    title="Add new technician"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setSelectedTechnician('')}
@@ -508,6 +563,18 @@ export function AddAppointmentDialog({ clients: initialClients, technicians: ini
           </div>
         </form>
       </DialogContent>
+
+      <QuickAddClientDialog
+        open={quickAddClientOpen}
+        onOpenChange={setQuickAddClientOpen}
+        onSuccess={handleQuickAddClientSuccess}
+      />
+
+      <QuickAddTechnicianDialog
+        open={quickAddTechnicianOpen}
+        onOpenChange={setQuickAddTechnicianOpen}
+        onSuccess={handleQuickAddTechnicianSuccess}
+      />
     </Dialog>
   )
 }

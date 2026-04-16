@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer'
+import { getBankingDetails } from '@/lib/banking-details'
 import type { ServiceContractPdfData } from '@/lib/service-contracts/pdf-data'
 
 const colors = {
@@ -115,15 +116,6 @@ const PAGE_THREE_SECTIONS = [
     title: '13.1',
     text: 'Customer is to pay the full amount of invoices within the days negotiated. Company reserves the right to withhold service if invoices are unpaid for over 30 days.',
   },
-]
-
-const bankingDetails = [
-  { label: 'Bank', value: 'First Global Bank' },
-  { label: 'Branch', value: 'Ocho Rios' },
-  { label: 'Name', value: 'ARK Air Conditioning, Refrigeration & Kitchen Maintenance Ltd.' },
-  { label: 'Branch Code', value: '99094' },
-  { label: 'Account Number', value: '99094 0006 439' },
-  { label: 'Account Type', value: 'Savings' },
 ]
 
 const styles = StyleSheet.create({
@@ -757,7 +749,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   bankingLabel: {
-    width: 108,
+    width: 124,
     fontSize: 8.2,
     fontWeight: 700,
     color: colors.orangeDark,
@@ -901,6 +893,7 @@ export const ServiceContractPdfDocument = ({ data }: { data: ServiceContractPdfD
   const firstHalf = Math.ceil(data.scope_of_work_points.length / 2)
   const leftPoints = data.scope_of_work_points.slice(0, firstHalf)
   const rightPoints = data.scope_of_work_points.slice(firstHalf)
+  const bankingDetails = getBankingDetails(data.client.company)
 
   return (
     <Document>

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, type MutableRefObject } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
+import { QuickAddTechnicianDialog } from '@/components/shared/quick-add-technician-dialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -10,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ChevronDown, Loader2, Minus, Save } from 'lucide-react'
+import { ChevronDown, Loader2, Minus, Plus, Save } from 'lucide-react'
 
 const Combobox = forwardRef<HTMLInputElement, {
   value: string
@@ -132,9 +134,10 @@ interface Client {
   id: string
   contact_name: string
   company_name: string | null
-  address?: string
-  city?: string
-  parish?: string
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  parish?: string | null
 }
 
 interface Technician {
@@ -154,8 +157,8 @@ interface Appointment {
   scheduled_time: string | null
   address: string | null
   notes: unknown
-  clients: { contact_name: string; company_name: string | null } | null
-  technicians: { name: string } | null
+  clients: { contact_name: string | null; company_name: string | null; phone?: string | null } | null
+  technicians: { name: string | null } | null
 }
 
 interface ParsedAppointmentNotes {
@@ -204,6 +207,10 @@ export function EditAppointmentDialog({
   onOpenChange,
 }: EditAppointmentDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [availableClients, setAvailableClients] = useState<Client[]>(clients)
+  const [availableTechnicians, setAvailableTechnicians] = useState<Technician[]>(technicians)
+  const [quickAddClientOpen, setQuickAddClientOpen] = useState(false)
+  const [quickAddTechnicianOpen, setQuickAddTechnicianOpen] = useState(false)
   const [subject, setSubject] = useState('')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [appointmentTime, setAppointmentTime] = useState('')
@@ -221,34 +228,50 @@ export function EditAppointmentDialog({
   const supabase = createClient()
 
   const companyNames = useMemo(
-    () => [...new Set(clients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))],
-    [clients]
+    () => [...new Set(availableClients.map((client) => String(client.company_name || client.contact_name || '')).filter(Boolean))],
+    [availableClients]
   )
   const addressOptions = useMemo(
-    () => [...new Set(clients.map((client) => buildAddress(client)).filter(Boolean))],
-    [clients]
+    () => [...new Set(availableClients.map((client) => buildAddress(client)).filter(Boolean))],
+    [availableClients]
   )
-  const technicianNames = useMemo(() => technicians.map((technician) => technician.name), [technicians])
+  const technicianNames = useMemo(() => availableTechnicians.map((technician) => technician.name), [availableTechnicians])
   const contactOptions = useMemo(() => {
     if (!selectedCompany) {
-      return [...new Set(clients.map((client) => client.contact_name).filter(Boolean))]
+      return [...new Set(availableClients.map((client) => client.contact_name).filter(Boolean))]
     }
 
     return [
       ...new Set(
-        clients
+        availableClients
           .filter((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
           .map((client) => client.contact_name)
           .filter(Boolean)
       ),
     ]
-  }, [clients, selectedCompany])
+  }, [availableClients, selectedCompany])
+
+  useEffect(() => {
+    if (!open) return
+    setAvailableClients(clients)
+  }, [clients, open])
+
+  useEffect(() => {
+    if (!open) return
+    setAvailableTechnicians(technicians)
+  }, [open, technicians])
 
   useEffect(() => {
     if (!appointment || !open) return
 
     const parsedNotes = parseNotes(appointment.notes)
     const company = appointment.clients?.company_name || appointment.clients?.contact_name || asText(parsedNotes.company_name)
+    const matchingClient = clients.find(
+      (client) =>
+        client.id === appointment.client_id ||
+        client.company_name === company ||
+        client.contact_name === company
+    )
 
     setSubject(appointment.title || '')
     setAppointmentDate(appointment.scheduled_date || '')
@@ -257,7 +280,7 @@ export function EditAppointmentDialog({
     setPriority(appointment.priority || 'medium')
     setSelectedCompany(company || '')
     setContactPerson(asText(parsedNotes.contact_person) || appointment.clients?.contact_name || '')
-    setTelephone(asText(parsedNotes.telephone))
+    setTelephone(asText(parsedNotes.telephone) || matchingClient?.phone || '')
     setSelectedTechnician(appointment.technicians?.name || '')
     setAdditionalTechnicians(
       Array.isArray(parsedNotes.additional_technicians)
@@ -267,17 +290,35 @@ export function EditAppointmentDialog({
     setAddress(appointment.address || '')
     setLandmark(asText(parsedNotes.address_landmark))
     setNotes(appointment.description || '')
-  }, [appointment, open])
+  }, [appointment, clients, open])
 
   function handleCompanySelect(company: string) {
     setSelectedCompany(company)
-    const matchingClients = clients.filter((client) => client.company_name === company || client.contact_name === company)
+    const matchingClients = availableClients.filter((client) => client.company_name === company || client.contact_name === company)
     if (matchingClients.length === 0) return
 
     const [firstClient] = matchingClients
     setContactPerson(firstClient.contact_name || '')
+    setTelephone(firstClient.phone || '')
     const clientAddress = buildAddress(firstClient)
     if (clientAddress) setAddress(clientAddress)
+  }
+
+  function handleQuickAddClientSuccess(newClient: Client) {
+    setAvailableClients((current) => [...current, newClient])
+
+    const newName = newClient.company_name || newClient.contact_name || ''
+    const clientAddress = buildAddress(newClient)
+
+    setSelectedCompany(newName)
+    setContactPerson(newClient.contact_name || '')
+    setTelephone(newClient.phone || '')
+    if (clientAddress) setAddress(clientAddress)
+  }
+
+  function handleQuickAddTechnicianSuccess(newTechnician: Technician) {
+    setAvailableTechnicians((current) => [...current, newTechnician])
+    setSelectedTechnician(newTechnician.name || '')
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -297,8 +338,8 @@ export function EditAppointmentDialog({
 
     setLoading(true)
 
-    const clientRecord = clients.find((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
-    const technicianRecord = technicians.find((technician) => technician.name === selectedTechnician)
+    const clientRecord = availableClients.find((client) => client.company_name === selectedCompany || client.contact_name === selectedCompany)
+    const technicianRecord = availableTechnicians.find((technician) => technician.name === selectedTechnician)
     const additionalTechnicianList = additionalTechnicians
       .split(',')
       .map((name) => name.trim())
@@ -420,6 +461,14 @@ export function EditAppointmentDialog({
                 <Label className={labelClassName}>Company / Client</Label>
                 <div className="flex items-center gap-1">
                   <Combobox value={selectedCompany} onChange={handleCompanySelect} options={companyNames} placeholder="Select company..." />
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddClientOpen(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                    title="Add new client"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                   <button type="button" onClick={() => setSelectedCompany('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
@@ -455,6 +504,14 @@ export function EditAppointmentDialog({
                 <Label className={labelClassName}>Technician Assigned</Label>
                 <div className="flex items-center gap-1">
                   <Combobox value={selectedTechnician} onChange={setSelectedTechnician} options={technicianNames} placeholder="Select technician..." />
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddTechnicianOpen(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                    title="Add new technician"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                   <button type="button" onClick={() => setSelectedTechnician('')} className="flex h-8 w-8 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                     <Minus className="h-3.5 w-3.5" />
                   </button>
@@ -514,6 +571,18 @@ export function EditAppointmentDialog({
           </div>
         </form>
       </DialogContent>
+
+      <QuickAddClientDialog
+        open={quickAddClientOpen}
+        onOpenChange={setQuickAddClientOpen}
+        onSuccess={handleQuickAddClientSuccess}
+      />
+
+      <QuickAddTechnicianDialog
+        open={quickAddTechnicianOpen}
+        onOpenChange={setQuickAddTechnicianOpen}
+        onSuccess={handleQuickAddTechnicianSuccess}
+      />
     </Dialog>
   )
 }

@@ -242,6 +242,33 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  body.document-print-mode * {
+    visibility: hidden !important;
+  }
+
+  body.document-print-mode .document-print-root,
+  body.document-print-mode .document-print-root * {
+    visibility: visible !important;
+  }
+
+  body.document-print-mode .document-print-root {
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    z-index: 9999 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: fit-content !important;
+    transform: translateX(-50%) !important;
+    background: white !important;
+  }
+
+  body.document-print-mode main,
+  body.document-print-mode .dark {
+    overflow: visible !important;
+    background: white !important;
+  }
   
   @page {
     size: A4;

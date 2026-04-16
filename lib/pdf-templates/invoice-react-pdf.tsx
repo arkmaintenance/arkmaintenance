@@ -403,6 +403,8 @@ interface InvoiceData {
   date: string
   payment_terms: string
   payment_method?: string
+  po_number?: string
+  trn?: string
   service_description: string
   service_location?: string
   client: {
@@ -492,6 +494,18 @@ export const InvoicePdfDocument = ({ data }: InvoicePdfDocumentProps) => {
                   <Text style={styles.invoiceDetailLabel}>Payment Terms: </Text>
                   <Text style={styles.invoiceDetailValue}>{data.payment_terms}</Text>
                 </Text>
+                {data.po_number ? (
+                  <Text>
+                    <Text style={styles.invoiceDetailLabel}>PO Number: </Text>
+                    <Text style={styles.invoiceDetailValue}>{data.po_number}</Text>
+                  </Text>
+                ) : null}
+                {data.trn ? (
+                  <Text>
+                    <Text style={styles.invoiceDetailLabel}>TRN: </Text>
+                    <Text style={styles.invoiceDetailValue}>{data.trn}</Text>
+                  </Text>
+                ) : null}
               </View>
               {data.service_location ? (
                 <View style={styles.shipToMeta}>

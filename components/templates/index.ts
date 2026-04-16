@@ -1,4 +1,6 @@
+export { AppointmentTemplate } from './appointment-template'
 export { InvoiceTemplate } from './invoice-template'
+export { JobTemplate } from './job-template'
 export { QuotationTemplate } from './quotation-template'
 export { ServiceContractTemplate } from './service-contract-template'
 export { EmailSignatureTemplate } from './email-signature-template'

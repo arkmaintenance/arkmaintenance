@@ -2,7 +2,9 @@
 
 import Image from 'next/image'
 import { forwardRef } from 'react'
+import { getAddressLines } from '@/lib/address-lines'
 import { getBankingDetails } from '@/lib/banking-details'
+import { getQuotationFillerRowCount } from '@/lib/quotation-layout'
 
 interface QuotationItem {
   description: string
@@ -17,11 +19,14 @@ interface QuotationData {
   quote_number: string
   date: string
   payment_terms: string
+  po_number?: string
+  trn?: string
   service_description: string
   service_location?: string
   timeline?: string
   isServiceContract?: boolean
   recurringSchedule?: string
+  warranty?: string
   scopeTemplate?: string
   scopeOfWork?: string
   scopeOfWorkPoints?: string[]
@@ -138,6 +143,7 @@ const SCOPE_TEMPLATES: Record<string, { title: string; intro: string; points: st
 
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ data }, ref) => {
+    const clientAddressLines = getAddressLines(data.client.address, data.client.city)
     const hasDiscountColumn = data.items.some((item: any) => item.discount && !item.section)
     const lineItems = data.items.filter(it => it.section === undefined)
     
@@ -153,16 +159,17 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     const scopeDef = data.scopeTemplate ? SCOPE_TEMPLATES[data.scopeTemplate] : null
     const scopePointCount = scopeDef ? scopeDef.points.length : (data.scopeOfWorkPoints?.length || 0)
     const hasScopeSection = Boolean(scopeDef || data.scopeOfWork)
-    const serviceLocationRowOffset = data.service_location ? 1 : 0
-    const minimumVisibleRows = hasScopeSection
-      ? Math.max(10, (scopePointCount > 0 ? (scopePointCount <= 12 ? 14 : 12) : 14) - serviceLocationRowOffset)
-      : Math.max(16, 20 - serviceLocationRowOffset)
-    const fillerCount = Math.max(0, minimumVisibleRows - lineItems.length)
+    const fillerCount = getQuotationFillerRowCount({
+      visibleTableRowCount: data.items.length,
+      hasScopeSection,
+      scopePointCount,
+      hasServiceLocation: Boolean(data.service_location),
+    })
     const fillerRows = Array.from({ length: fillerCount })
-    const contractType = data.isServiceContract ? 'SERVICE CONTRACT' : 'STANDARD QUOTATION'
     const scheduleLabel = data.recurringSchedule
       ? data.recurringSchedule.charAt(0).toUpperCase() + data.recurringSchedule.slice(1).replace('-', ' ')
       : 'One-time'
+    const warrantyLabel = data.warranty || '30 days'
 
     return (
       <div
@@ -199,8 +206,9 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             <div className="border-2 border-[#FF6B00] rounded-md px-3 py-2 bg-orange-50 min-w-[220px]">
               <p className="font-bold text-black text-[13px]">{data.client.name}</p>
               {data.client.company && <p className="text-[#FF6B00] font-semibold text-[12px] leading-tight">{data.client.company}</p>}
-              {data.client.address && <p className="text-[#FF6B00] text-[12px] leading-tight">{data.client.address}</p>}
-              {data.client.city && <p className="text-[#FF6B00] text-[12px] leading-tight">{data.client.city}</p>}
+              {clientAddressLines.map((line, index) => (
+                <p key={`${line}-${index}`} className="text-[#FF6B00] text-[12px] leading-tight">{line}</p>
+              ))}
             </div>
           </div>
           <div className="text-right">
@@ -209,6 +217,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               <p><span className="font-normal text-gray-500">Quotation:</span> <span className="font-bold">{data.quote_number}</span></p>
               <p><span className="font-normal text-gray-500">Date:</span> <span className="font-bold">{data.date}</span></p>
               <p><span className="font-normal text-gray-500">Payment Terms:</span> <span className="font-bold">{data.payment_terms}</span></p>
+              {data.po_number && <p><span className="font-normal text-gray-500">PO Number:</span> <span className="font-bold">{data.po_number}</span></p>}
+              {data.trn && <p><span className="font-normal text-gray-500">TRN:</span> <span className="font-bold">{data.trn}</span></p>}
             </div>
             {data.service_location && (
               <div className="mt-2 text-right">
@@ -294,12 +304,12 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
 
         <div className="pt-2">
 
-          {/* Contract Type / Schedule / Timeline — 3 boxes matching sample image */}
+          {/* Warranty / Schedule / Timeline */}
           <div className="grid grid-cols-3 gap-0 mb-3 border border-gray-300 rounded-md overflow-hidden">
-            {/* Contract Type — dark navy */}
+            {/* Warranty — dark navy */}
             <div className="bg-[#1a1a2e] px-3 py-2 text-center">
-              <p className="text-gray-400 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Contract Type</p>
-              <p className="text-white font-extrabold text-[13px] uppercase leading-tight">{contractType}</p>
+              <p className="text-gray-400 text-[9px] font-semibold uppercase tracking-widest mb-0.5">Warranty</p>
+              <p className="text-white font-extrabold text-[13px] uppercase leading-tight">{warrantyLabel}</p>
             </div>
             {/* Schedule — orange tint */}
             <div className="bg-orange-50 border-x border-gray-300 px-3 py-2 text-center">
@@ -392,11 +402,11 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           <div className="grid grid-cols-2 gap-2 mb-2">
             <div className="relative overflow-hidden rounded bg-gray-50" style={{ height: '152px' }}>
               <img src="/images/1.jpeg" alt="ARK Kitchen Exhaust Service"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center top', backgroundColor: '#f9fafb' }} />
             </div>
             <div className="relative overflow-hidden rounded bg-gray-50" style={{ height: '152px' }}>
               <img src="/images/2.jpeg" alt="ARK AC Servicing"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center top', backgroundColor: '#f9fafb' }} />
             </div>
           </div>
           <div className="text-center">

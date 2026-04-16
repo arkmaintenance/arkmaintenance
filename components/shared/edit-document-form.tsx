@@ -46,6 +46,7 @@ export interface EditFormValues {
   timeline: string
   isServiceContract: boolean
   recurringSchedule: string
+  warranty: string
   scopeOfWork: string
   scopeOfWorkPoints: string[]
   scopeTemplate: string       // which checklist template key
@@ -475,6 +476,7 @@ export function EditDocumentForm({
   const [timeline, setTimeline] = useState(initialValues.timeline)
   const [isServiceContract, setIsServiceContract] = useState(initialValues.isServiceContract)
   const [recurringSchedule, setRecurringSchedule] = useState(initialValues.recurringSchedule)
+  const [warranty, setWarranty] = useState(initialValues.warranty || '30 days')
   const [scopeOfWork, setScopeOfWork] = useState(initialValues.scopeOfWork)
   const [scopeOfWorkPoints, setScopeOfWorkPoints] = useState(initialValues.scopeOfWorkPoints || [])
   const [scopeTemplate, setScopeTemplate] = useState(initialValues.scopeTemplate || '')
@@ -625,7 +627,7 @@ export function EditDocumentForm({
 
   const currentValues: EditFormValues = {
     title, contactPerson, serviceLocation, address, paymentTerms, paymentMethod,
-    poNumber, trn, timeline, isServiceContract, recurringSchedule,
+    poNumber, trn, timeline, isServiceContract, recurringSchedule, warranty,
     scopeOfWork, scopeOfWorkPoints, scopeTemplate, validUntil, issuedDate, dueDate, status, notes, items, selectedClientId,
   }
 
@@ -880,8 +882,8 @@ export function EditDocumentForm({
           </div>
         </div>
       </div>
-      {/* ── Timeline + Recurring Schedule ── */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* ── Timeline + Recurring Schedule + Warranty ── */}
+      <div className={`grid gap-4 ${docType === 'quotation' ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <ClearableField label="Job Completion Timeline" value={timeline} onChange={setTimeline}
           options={['1 Day','2-3 Days','3-5 Days','1 Week','2 Weeks','1 Month']}
           placeholder="e.g. 3-5 Days..." />
@@ -902,6 +904,26 @@ export function EditDocumentForm({
             </button>
           </div>
         </div>
+        {docType === 'quotation' && (
+          <div className="space-y-1">
+            <Label className="text-gray-300 text-sm font-medium">Warranty</Label>
+            <div className="flex gap-1 items-center">
+              <Select value={warranty} onValueChange={setWarranty}>
+                <SelectTrigger className="bg-[#2a2a4a] border-[#3a3a5a] text-white flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-[#3a3a5a]">
+                  <SelectItem value="30 days" className="text-white">30 Days</SelectItem>
+                  <SelectItem value="90 days" className="text-white">90 Days</SelectItem>
+                  <SelectItem value="1 year" className="text-white">1 Year</SelectItem>
+                  <SelectItem value="3 years" className="text-white">3 Years</SelectItem>
+                </SelectContent>
+              </Select>
+              <button type="button" title="Reset field" onClick={() => setWarranty('30 days')}
+                className="w-8 h-8 rounded-md bg-red-900/40 text-red-400 flex items-center justify-center hover:bg-red-900/60 shrink-0">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Service Contract toggle */}

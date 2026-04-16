@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { Send, Eye, Mail, FileText, X, Plus, Download, CheckCircle2, AlertCircle
 import { toast } from 'sonner'
 import { formatEmailList, parseValidEmailList, uniqueEmailList } from '@/lib/email-addresses'
 import { generateInvoiceEmailHtml, getDefaultInvoiceEmailContent } from '@/lib/email-templates/invoice-email'
+import { useEmailAddressBook } from '@/hooks/use-email-address-book'
 
 interface InvoiceItem {
   description: string
@@ -92,6 +93,7 @@ export function SendInvoiceDialog({
 }: SendInvoiceDialogProps) {
   const defaultSubject = `Invoice ${invoiceData.invoice_number} from ARK Maintenance`
   const attachmentInputRef = useRef<HTMLInputElement>(null)
+  const suggestionsBaseId = useId()
   const [sending, setSending] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
@@ -110,8 +112,10 @@ export function SendInvoiceDialog({
   const [closingMessage, setClosingMessage] = useState('')
   const [extraAttachments, setExtraAttachments] = useState<ExtraEmailAttachment[]>([])
   const [activeTab, setActiveTab] = useState('compose')
-
+  const { suggestions, rememberAddresses } = useEmailAddressBook([clientEmail, invoiceData.client.email])
   const pdfFilename = `Invoice-${invoiceData.invoice_number}.pdf`
+  const recipientSuggestionsId = `${suggestionsBaseId}-invoice-recipient-suggestions`
+  const ccSuggestionsId = `${suggestionsBaseId}-invoice-cc-suggestions`
 
   const addEmails = (
     rawValue: string,
@@ -130,6 +134,7 @@ export function SendInvoiceDialog({
     }
 
     updateValues(uniqueEmailList([...currentValues, ...valid]))
+    rememberAddresses(valid)
     clearInput?.()
   }
 
@@ -351,6 +356,7 @@ export function SendInvoiceDialog({
         throw new Error(result.error || 'Failed to send email')
       }
 
+      rememberAddresses([...nextRecipients, ...nextCc], 'history')
       toast.success(`Invoice sent successfully to ${nextRecipients.length} recipient${nextRecipients.length > 1 ? 's' : ''}`)
       onOpenChange(false)
     } catch (error) {
@@ -479,7 +485,8 @@ export function SendInvoiceDialog({
               <div className="flex gap-2">
                 <Input
                   id="recipient"
-                  type="email"
+                  type="text"
+                  list={recipientSuggestionsId}
                   value={newRecipientEmail}
                   onChange={(e) => setNewRecipientEmail(e.target.value)}
                   placeholder="Add one or more emails separated by comma"
@@ -495,6 +502,16 @@ export function SendInvoiceDialog({
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              <datalist id={recipientSuggestionsId}>
+                {suggestions.map((suggestion) => (
+                  <option
+                    key={`recipient-${suggestion.email}`}
+                    value={suggestion.email}
+                    label={suggestion.label ? `${suggestion.label} <${suggestion.email}>` : suggestion.email}
+                  />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">Saved recipient addresses appear in the dropdown while you type.</p>
               {recipientEmails.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {recipientEmails.map((email) => (
@@ -520,7 +537,8 @@ export function SendInvoiceDialog({
               <Label>CC (optional)</Label>
               <div className="flex gap-2">
                 <Input
-                  type="email"
+                  type="text"
+                  list={ccSuggestionsId}
                   value={newCcEmail}
                   onChange={(e) => setNewCcEmail(e.target.value)}
                   placeholder="Add CC email"
@@ -536,6 +554,15 @@ export function SendInvoiceDialog({
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              <datalist id={ccSuggestionsId}>
+                {suggestions.map((suggestion) => (
+                  <option
+                    key={`cc-${suggestion.email}`}
+                    value={suggestion.email}
+                    label={suggestion.label ? `${suggestion.label} <${suggestion.email}>` : suggestion.email}
+                  />
+                ))}
+              </datalist>
               {ccEmails.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {ccEmails.map((email) => (

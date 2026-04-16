@@ -1,3 +1,5 @@
+import { getBankingDetails } from '@/lib/banking-details'
+
 interface QuotationEmailData {
   quote_number: string
   date: string
@@ -54,6 +56,23 @@ function renderParagraphs(message: string) {
 
 function renderInlineText(message: string) {
   return escapeHtml(message).replace(/\n/g, '<br />')
+}
+
+function renderBankingDetails(companyName?: string) {
+  return getBankingDetails(companyName)
+    .map(
+      (detail) => `
+        <tr>
+          <td style="width: 160px; vertical-align: top; padding: 0 12px 8px 0; color: #9a3412; font-size: 13px; font-weight: 700;">
+            ${escapeHtml(detail.label)}:
+          </td>
+          <td style="vertical-align: top; padding: 0 0 8px 0; color: #475569; font-size: 13px;">
+            ${escapeHtml(detail.value)}
+          </td>
+        </tr>
+      `
+    )
+    .join('')
 }
 
 export function getDefaultQuotationEmailContent(data: QuotationEmailData): Required<QuotationEmailContentOptions> {
@@ -139,6 +158,15 @@ export function generateQuotationEmailHtml(
                 </p>
               </td>
             </tr>
+          </table>
+        </div>
+
+        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin-bottom: 25px;">
+          <p style="color: #9a3412; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 12px 0;">
+            Banking Details
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${renderBankingDetails(data.client.company)}
           </table>
         </div>
         

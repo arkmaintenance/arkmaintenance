@@ -13,8 +13,15 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { QuickAddClientDialog } from '@/components/shared/quick-add-client-dialog'
+import { QuickAddTechnicianDialog } from '@/components/shared/quick-add-technician-dialog'
 import { createClient } from '@/lib/supabase/client'
 import { buildJobWhatsAppUrl } from '@/lib/job-whatsapp'
+import {
+  closePendingExternalWindow,
+  openPendingExternalWindow,
+  redirectPendingExternalWindow,
+} from '@/lib/pending-external-window'
 
 interface ClientOption {
   id: string
@@ -137,6 +144,8 @@ export default function EditJobPage() {
   const [saving, setSaving] = useState(false)
   const [clients, setClients] = useState<ClientOption[]>([])
   const [technicians, setTechnicians] = useState<TechnicianOption[]>([])
+  const [quickAddClientOpen, setQuickAddClientOpen] = useState(false)
+  const [quickAddTechnicianOpen, setQuickAddTechnicianOpen] = useState(false)
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([])
   const [jobTitle, setJobTitle] = useState('')
   const [selectedCompany, setSelectedCompany] = useState('')
@@ -294,6 +303,23 @@ export default function EditJobPage() {
     if (firstMatch.parish) setLocation(firstMatch.parish)
   }
 
+  function handleQuickAddClientSuccess(newClient: ClientOption) {
+    setClients((current) => [...current, newClient])
+    const newName = newClient.company_name || newClient.contact_name || ''
+    const nextAddress = buildAddress(newClient)
+
+    setSelectedCompany(newName)
+    setContactPerson(newClient.contact_name || '')
+    setWhatsappNumber(newClient.phone || '')
+    setClientAddress(nextAddress)
+    if (newClient.parish) setLocation(newClient.parish)
+  }
+
+  function handleQuickAddTechnicianSuccess(newTechnician: TechnicianOption) {
+    setTechnicians((current) => [...current, newTechnician])
+    setSelectedTechnician(newTechnician.name || '')
+  }
+
   function addLineItem() {
     setLineItems((current) => [...current, { id: `${Date.now()}-${current.length + 1}`, description: '', quantity: 1, unit_price: 0 }])
   }
@@ -343,7 +369,7 @@ export default function EditJobPage() {
       return
     }
 
-    const pendingWindow = whatsappUrl ? window.open('', '_blank') : null
+    const pendingWindow = whatsappUrl ? openPendingExternalWindow('Opening WhatsApp') : null
     setSaving(true)
 
     const { error } = await supabase
@@ -381,15 +407,14 @@ export default function EditJobPage() {
       .eq('id', jobId)
 
     if (error) {
-      if (pendingWindow) pendingWindow.close()
+      closePendingExternalWindow(pendingWindow)
       toast.error(error.message || 'Failed to update job')
       setSaving(false)
       return
     }
 
     if (whatsappUrl) {
-      if (pendingWindow) pendingWindow.location.href = whatsappUrl
-      else window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+      redirectPendingExternalWindow(pendingWindow, whatsappUrl)
     }
 
     toast.success(whatsappUrl ? 'Job updated and opened in WhatsApp' : 'Job updated successfully')
@@ -468,6 +493,14 @@ export default function EditJobPage() {
                         placeholder="Select or type company"
                         list="job-client-options"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddClientOpen(true)}
+                        className="flex h-9 w-9 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                        title="Add new client"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                       <button type="button" onClick={() => { setSelectedCompany(''); setContactPerson(''); setWhatsappNumber(''); setClientAddress('') }} className="flex h-9 w-9 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -540,6 +573,14 @@ export default function EditJobPage() {
                         placeholder="Assigned technician"
                         list="job-technician-options"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setQuickAddTechnicianOpen(true)}
+                        className="flex h-9 w-9 items-center justify-center rounded-md bg-[#00BCD4] text-white hover:bg-[#00BCD4]/80"
+                        title="Add new technician"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                       <button type="button" onClick={() => setSelectedTechnician('')} className="flex h-9 w-9 items-center justify-center rounded-md bg-red-900/40 text-red-400 hover:bg-red-900/60">
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -769,6 +810,18 @@ export default function EditJobPage() {
           </div>
         </form>
       </div>
+
+      <QuickAddClientDialog
+        open={quickAddClientOpen}
+        onOpenChange={setQuickAddClientOpen}
+        onSuccess={handleQuickAddClientSuccess}
+      />
+
+      <QuickAddTechnicianDialog
+        open={quickAddTechnicianOpen}
+        onOpenChange={setQuickAddTechnicianOpen}
+        onSuccess={handleQuickAddTechnicianSuccess}
+      />
     </div>
   )
 }

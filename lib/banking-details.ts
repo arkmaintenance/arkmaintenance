@@ -21,12 +21,18 @@ const BHC_BANKING_DETAILS: BankingDetail[] = [
   { label: 'Swift', value: 'FILBJMKN' },
 ]
 
-export function getBankingDetails(companyName?: string | null): BankingDetail[] {
+const BHC_COMPANY_PATTERNS = [
+  /\bbritish\s+high\s+commission\b/,
+  /\bbritish\s+high\s+commision\b/,
+  /\bbritish\s+high\s+comission\b/,
+]
+
+export function isBritishHighCommissionClient(companyName?: string | null) {
   const normalizedCompanyName = (companyName || '').trim().toLowerCase()
 
-  if (normalizedCompanyName.includes('british high commission')) {
-    return BHC_BANKING_DETAILS
-  }
+  return BHC_COMPANY_PATTERNS.some((pattern) => pattern.test(normalizedCompanyName))
+}
 
-  return DEFAULT_BANKING_DETAILS
+export function getBankingDetails(companyName?: string | null): BankingDetail[] {
+  return isBritishHighCommissionClient(companyName) ? BHC_BANKING_DETAILS : DEFAULT_BANKING_DETAILS
 }

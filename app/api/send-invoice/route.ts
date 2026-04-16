@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resend, DEFAULT_FROM_EMAIL, COMPANY_NAME } from '@/lib/resend'
 import { generateInvoiceEmailHtml } from '@/lib/email-templates/invoice-email'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Log email to database
     try {
-      const supabase = await createClient()
+      const supabase = createAdminClient()
       await supabase.from('emails').insert({
         resend_id: data?.id,
         direction: 'outgoing',
